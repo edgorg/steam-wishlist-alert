@@ -15,6 +15,9 @@
           <button class="header-btn" id="check-now-btn" title="Check prices now">
             <svg viewBox="0 0 24 24" class="header-btn-icon"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
           </button>
+          <button class="header-btn" id="settings-btn" title="Settings">
+            <svg viewBox="0 0 24 24" class="header-btn-icon"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          </button>
           <button class="header-btn" id="clear-btn" title="Clear all games">
             <svg viewBox="0 0 24 24" class="header-btn-icon"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
@@ -22,6 +25,70 @@
       </div>
       <span id="last-checked" class="last-checked"></span>
     </header>
+
+    <!-- Settings Panel -->
+    <div id="settings-panel" class="settings-panel hidden">
+      <div class="setting-row">
+        <span class="setting-label">Theme</span>
+        <div class="setting-toggle-group" id="theme-toggle">
+          <button class="setting-toggle active" data-value="dark">Dark</button>
+          <button class="setting-toggle" data-value="light">Light</button>
+          <button class="setting-toggle" data-value="system">System</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Notifications</span>
+        <div class="setting-toggle-group" id="notifications-toggle">
+          <button class="setting-toggle active" data-value="on">On</button>
+          <button class="setting-toggle" data-value="off">Off</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Region</span>
+        <select class="setting-select" id="region-select">
+          <option value="gb">UK (GBP)</option>
+          <option value="us">US (USD)</option>
+          <option value="eu">Europe (EUR)</option>
+          <option value="au">Australia (AUD)</option>
+          <option value="ca">Canada (CAD)</option>
+          <option value="nz">New Zealand (NZD)</option>
+          <option value="jp">Japan (JPY)</option>
+          <option value="br">Brazil (BRL)</option>
+          <option value="in">India (INR)</option>
+          <option value="cn">China (CNY)</option>
+          <option value="kr">South Korea (KRW)</option>
+          <option value="tw">Taiwan (TWD)</option>
+          <option value="hk">Hong Kong (HKD)</option>
+          <option value="sg">Singapore (SGD)</option>
+          <option value="th">Thailand (THB)</option>
+          <option value="my">Malaysia (MYR)</option>
+          <option value="ph">Philippines (PHP)</option>
+          <option value="id">Indonesia (IDR)</option>
+          <option value="vn">Vietnam (VND)</option>
+          <option value="za">South Africa (ZAR)</option>
+          <option value="mx">Mexico (MXN)</option>
+          <option value="ar">Argentina (ARS)</option>
+          <option value="cl">Chile (CLP)</option>
+          <option value="co">Colombia (COP)</option>
+          <option value="tr">Turkey (TRY)</option>
+          <option value="ua">Ukraine (UAH)</option>
+          <option value="pl">Poland (PLN)</option>
+          <option value="no">Norway (NOK)</option>
+          <option value="se">Sweden (SEK)</option>
+          <option value="dk">Denmark (DKK)</option>
+          <option value="ch">Switzerland (CHF)</option>
+          <option value="ae">UAE (AED)</option>
+          <option value="sa">Saudi Arabia (SAR)</option>
+          <option value="kw">Kuwait (KWD)</option>
+          <option value="qa">Qatar (QAR)</option>
+          <option value="pe">Peru (PEN)</option>
+          <option value="uy">Uruguay (UYU)</option>
+          <option value="cr">Costa Rica (CRC)</option>
+          <option value="kz">Kazakhstan (KZT)</option>
+          <option value="pk">Pakistan (PKR)</option>
+        </select>
+      </div>
+    </div>
 
     <!-- Search / Add Game -->
     <div class="search-section">
@@ -33,7 +100,7 @@
 
     <!-- Import from current page -->
     <div id="import-section" class="import-section hidden">
-      <button id="import-page-btn" class="import-page-btn">Import Wishlist From This Page</button>
+      <button id="import-page-btn" class="import-page-btn">Import wishlist from this page</button>
     </div>
 
     <!-- Deals section -->
@@ -64,6 +131,17 @@
     <div id="import-hint" class="import-hint hidden">
       <p>Want to import your full wishlist?</p>
       <a href="https://store.steampowered.com/wishlist/" target="_blank" class="import-link">Visit your Steam Wishlist page</a>
+    </div>
+
+    <!-- Custom Modal -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <p id="modal-message" class="modal-message"></p>
+        <div class="modal-actions">
+          <button id="modal-cancel" class="modal-btn modal-btn-cancel">Cancel</button>
+          <button id="modal-confirm" class="modal-btn modal-btn-confirm">Continue</button>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -57,9 +57,11 @@ async function importWishlist(games) {
 
 // Check prices for all tracked games
 async function checkPrices() {
-  const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
+  const data = await chrome.storage.local.get(["trackedGames", "priceTargets", "notifications", "region"]);
+  const cc = data.region || "gb";
   const games = data.trackedGames || [];
   const targets = data.priceTargets || {};
+  const notificationsEnabled = data.notifications !== "off";
 
   if (games.length === 0) return;
 
@@ -70,7 +72,7 @@ async function checkPrices() {
   for (const game of games) {
     try {
       const response = await fetch(
-        `https://store.steampowered.com/api/appdetails?appids=${game.appId}&cc=gb`
+        `https://store.steampowered.com/api/appdetails?appids=${game.appId}&cc=${cc}`
       );
 
       if (!response.ok) continue;
@@ -91,20 +93,20 @@ async function checkPrices() {
       game.currentPrice = priceOverview ? priceOverview.final / 100 : 0;
       game.originalPrice = priceOverview ? priceOverview.initial / 100 : 0;
       game.discountPercent = priceOverview ? priceOverview.discount_percent : 0;
+      game.currency = priceOverview?.currency || "GBP";
 
-      // Check for price drop notification
       const target = targets[game.appId];
 
-      if (previousPrice !== null && game.currentPrice < previousPrice) {
+      if (notificationsEnabled && previousPrice !== null && game.currentPrice < previousPrice) {
         const saving = (previousPrice - game.currentPrice).toFixed(2);
+        const symbol = getCurrencySymbol(game.currency);
 
-        // Notify if hit target or significant drop
         if ((target && game.currentPrice <= target) || game.discountPercent >= 20) {
           chrome.notifications.create(`deal-${game.appId}`, {
             type: "basic",
             iconUrl: chrome.runtime.getURL("icons/icon128.png"),
             title: "Price Drop!",
-            message: `${game.name} is now \u00A3${game.currentPrice.toFixed(2)} (was \u00A3${previousPrice.toFixed(2)}) - Save \u00A3${saving}!`
+            message: `${game.name} is now ${symbol}${game.currentPrice.toFixed(2)} (was ${symbol}${previousPrice.toFixed(2)}) - Save ${symbol}${saving}!`
           });
           priceDrops++;
         }
@@ -118,7 +120,6 @@ async function checkPrices() {
 
   await chrome.storage.local.set({ trackedGames: games, lastChecked: Date.now() });
 
-  // Update badge
   if (priceDrops > 0) {
     chrome.action.setBadgeBackgroundColor({ color: "#6cc644" });
     chrome.action.setBadgeText({ text: priceDrops.toString() });
@@ -127,6 +128,22 @@ async function checkPrices() {
   }
 
   console.log(`Price check complete. ${priceDrops} drops found.`);
+}
+
+function getCurrencySymbol(cc) {
+  const symbols = {
+    gb: "\u00A3",
+    us: "$",
+    eu: "\u20AC",
+    au: "A$",
+    ca: "C$",
+    jp: "\u00A5",
+    br: "R$",
+    ru: "\u20BD",
+    nz: "NZ$",
+    in: "\u20B9"
+  };
+  return symbols[cc] || "\u00A3";
 }
 
 // Clear badge when popup opens

@@ -1,14 +1,17 @@
 const SteamAPI = {
   STORE_URL: "https://store.steampowered.com",
 
-  // ============================================================
-  // Search for a game on Steam store
-  // ============================================================
+  async getRegion() {
+    const data = await chrome.storage.local.get(["region"]);
+    return data.region || "gb";
+  },
+
   async searchGame(query) {
     try {
       const encoded = encodeURIComponent(query);
+      const cc = await this.getRegion();
       const response = await fetch(
-        `${this.STORE_URL}/api/storesearch/?term=${encoded}&l=english&cc=gb`
+        `${this.STORE_URL}/api/storesearch/?term=${encoded}&l=english&cc=${cc}`
       );
 
       if (!response.ok) return [];
@@ -25,13 +28,11 @@ const SteamAPI = {
     }
   },
 
-  // ============================================================
-  // Get app details (price, name, images)
-  // ============================================================
   async getAppDetails(appId) {
     try {
+      const cc = await this.getRegion();
       const response = await fetch(
-        `${this.STORE_URL}/api/appdetails?appids=${appId}&cc=gb`
+        `${this.STORE_URL}/api/appdetails?appids=${appId}&cc=${cc}`
       );
 
       if (!response.ok) return null;
@@ -61,28 +62,5 @@ const SteamAPI = {
       console.warn(`App details failed for ${appId}:`, e.message);
       return null;
     }
-  },
-
-  // ============================================================
-  // Get details for multiple apps
-  // ============================================================
-  async getMultipleAppDetails(appIds, onProgress) {
-    const results = {};
-    let completed = 0;
-
-    for (const appId of appIds) {
-      const details = await this.getAppDetails(appId);
-      if (details) {
-        results[appId] = details;
-      }
-
-      completed++;
-      if (onProgress) onProgress(completed, appIds.length);
-
-      // Rate limiting
-      await new Promise(r => setTimeout(r, 250));
-    }
-
-    return results;
   }
 };

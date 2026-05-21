@@ -330,7 +330,7 @@ body::-webkit-scrollbar-thumb {
 }
 
 .target-input {
-  width: 55px;
+  width: 70px;
   padding: 4px 6px;
   font-size: 11px;
   font-family: inherit;
@@ -456,4 +456,163 @@ body::-webkit-scrollbar-thumb {
 .import-page-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* Settings panel */
+.settings-panel {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.setting-toggle-group {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.setting-toggle {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.setting-toggle:hover {
+  color: var(--text-primary);
+}
+
+.setting-toggle.active {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.setting-select {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+}
+
+.setting-select:focus {
+  border-color: var(--accent);
+}
+
+.setting-value {
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f5f7fa;
+  --text-primary: #1b2838;
+  --text-secondary: #4a5568;
+  --text-muted: #8f98a0;
+  --accent: #1a9fff;
+  --accent-hover: #0d8ce6;
+  --green: #4caf50;
+  --green-bg: #e8f5e9;
+  --red: #e74c3c;
+  --border: #d2d6dc;
+  --discount-bg: #e8f5e9;
+  --discount-text: #2e7d32;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 280px;
+  width: 100%;
+}
+
+.modal-message {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s ease;
+}
+
+.modal-btn:hover {
+  opacity: 0.9;
+}
+
+.modal-btn-cancel {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.modal-btn-confirm {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.modal-btn-danger {
+  background: var(--red);
+  color: white;
 }

@@ -13,15 +13,70 @@ const watchingCount = document.getElementById("watching-count");
 const emptyState = document.getElementById("empty-state");
 const importHint = document.getElementById("import-hint");
 const checkNowBtn = document.getElementById("check-now-btn");
+const settingsBtn = document.getElementById("settings-btn");
+const settingsPanel = document.getElementById("settings-panel");
 const clearBtn = document.getElementById("clear-btn");
 const lastCheckedEl = document.getElementById("last-checked");
+const themeToggle = document.getElementById("theme-toggle");
+const notificationsToggle = document.getElementById("notifications-toggle");
+const modalOverlay = document.getElementById("modal-overlay");
+const modalMessage = document.getElementById("modal-message");
+const modalConfirm = document.getElementById("modal-confirm");
+const modalCancel = document.getElementById("modal-cancel");
+const regionSelect = document.getElementById("region-select");
 
 let searchTimeout = null;
+let currentCurrencySymbol = "\u00A3";
+
+const REGION_CURRENCY = {
+  gb: { code: "GBP", symbol: "\u00A3" },
+  us: { code: "USD", symbol: "$" },
+  eu: { code: "EUR", symbol: "\u20AC" },
+  au: { code: "AUD", symbol: "A$" },
+  ca: { code: "CAD", symbol: "C$" },
+  nz: { code: "NZD", symbol: "NZ$" },
+  jp: { code: "JPY", symbol: "\u00A5" },
+  br: { code: "BRL", symbol: "R$" },
+  in: { code: "INR", symbol: "\u20B9" },
+  cn: { code: "CNY", symbol: "\u00A5" },
+  kr: { code: "KRW", symbol: "\u20A9" },
+  tw: { code: "TWD", symbol: "NT$" },
+  hk: { code: "HKD", symbol: "HK$" },
+  sg: { code: "SGD", symbol: "S$" },
+  th: { code: "THB", symbol: "\u0E3F" },
+  my: { code: "MYR", symbol: "RM" },
+  ph: { code: "PHP", symbol: "\u20B1" },
+  id: { code: "IDR", symbol: "Rp" },
+  vn: { code: "VND", symbol: "\u20AB" },
+  za: { code: "ZAR", symbol: "R" },
+  mx: { code: "MXN", symbol: "MX$" },
+  ar: { code: "ARS", symbol: "ARS$" },
+  cl: { code: "CLP", symbol: "CLP$" },
+  co: { code: "COP", symbol: "COP$" },
+  tr: { code: "TRY", symbol: "\u20BA" },
+  ua: { code: "UAH", symbol: "\u20B4" },
+  pl: { code: "PLN", symbol: "z\u0142" },
+  no: { code: "NOK", symbol: "kr" },
+  se: { code: "SEK", symbol: "kr" },
+  dk: { code: "DKK", symbol: "kr" },
+  ch: { code: "CHF", symbol: "CHF" },
+  ae: { code: "AED", symbol: "AED" },
+  sa: { code: "SAR", symbol: "SAR" },
+  kw: { code: "KWD", symbol: "KWD" },
+  qa: { code: "QAR", symbol: "QAR" },
+  pe: { code: "PEN", symbol: "S/" },
+  uy: { code: "UYU", symbol: "$U" },
+  cr: { code: "CRC", symbol: "\u20A1" },
+  kz: { code: "KZT", symbol: "\u20B8" },
+  pk: { code: "PKR", symbol: "Rs" }
+};
 
 // ============================================================
 // Initialise
 // ============================================================
 async function init() {
+  await loadSettings();
+
   const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
   const games = data.trackedGames || [];
   const targets = data.priceTargets || {};
@@ -37,11 +92,116 @@ async function init() {
   } else {
     emptyState.classList.add("hidden");
     importHint.classList.remove("hidden");
+    detectCurrency(games);
     renderGames(games, targets);
   }
 
   updateLastChecked();
   checkForWishlistPage();
+}
+
+// ============================================================
+// Custom Modal
+// ============================================================
+function showModal(message, confirmText = "Continue", isDanger = false) {
+  return new Promise((resolve) => {
+    modalMessage.textContent = message;
+    modalConfirm.textContent = confirmText;
+    modalConfirm.className = `modal-btn ${isDanger ? 'modal-btn-danger' : 'modal-btn-confirm'}`;
+    modalOverlay.classList.remove("hidden");
+
+    function handleConfirm() {
+      cleanup();
+      resolve(true);
+    }
+
+    function handleCancel() {
+      cleanup();
+      resolve(false);
+    }
+
+    function cleanup() {
+      modalOverlay.classList.add("hidden");
+      modalConfirm.removeEventListener("click", handleConfirm);
+      modalCancel.removeEventListener("click", handleCancel);
+    }
+
+    modalConfirm.addEventListener("click", handleConfirm);
+    modalCancel.addEventListener("click", handleCancel);
+  });
+}
+
+// ============================================================
+// Currency Detection
+// ============================================================
+function detectCurrency(games) {
+  if (games.length > 0 && games[0].currency) {
+    const code = games[0].currency;
+
+    // Find symbol from REGION_CURRENCY map
+    const match = Object.values(REGION_CURRENCY).find(r => r.code === code);
+    if (match) {
+      currentCurrencySymbol = match.symbol;
+    } else {
+      currentCurrencySymbol = code;
+    }
+  }
+}
+
+// ============================================================
+// Settings
+// ============================================================
+settingsBtn.addEventListener("click", () => {
+  settingsPanel.classList.toggle("hidden");
+});
+
+themeToggle.querySelectorAll(".setting-toggle").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    themeToggle.querySelectorAll(".setting-toggle").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    const theme = btn.dataset.value;
+    await chrome.storage.local.set({ theme });
+    applyTheme(theme);
+  });
+});
+
+notificationsToggle.querySelectorAll(".setting-toggle").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    notificationsToggle.querySelectorAll(".setting-toggle").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    await chrome.storage.local.set({ notifications: btn.dataset.value });
+  });
+});
+
+function applyTheme(theme) {
+  if (theme === "system") {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+  } else {
+    document.documentElement.setAttribute("data-theme", theme);
+  }
+}
+
+async function loadSettings() {
+  const data = await chrome.storage.local.get(["theme", "notifications", "region"]);
+
+  const theme = data.theme || "dark";
+  applyTheme(theme);
+  themeToggle.querySelectorAll(".setting-toggle").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.value === theme);
+  });
+
+  const notifications = data.notifications || "on";
+  notificationsToggle.querySelectorAll(".setting-toggle").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.value === notifications);
+  });
+
+  const region = data.region || "gb";
+  regionSelect.value = region;
+  if (REGION_CURRENCY[region]) {
+    currentCurrencySymbol = REGION_CURRENCY[region].symbol;
+  }
 }
 
 // ============================================================
@@ -189,7 +349,6 @@ function renderGames(games, targets) {
     }
   }
 
-  // Deals - sorted by biggest discount
   if (deals.length > 0) {
     deals.sort((a, b) => b.discountPercent - a.discountPercent);
     dealsSection.classList.remove("hidden");
@@ -200,7 +359,6 @@ function renderGames(games, targets) {
     dealsCount.textContent = "";
   }
 
-  // Watching
   watchingCount.textContent = watching.length;
   gamesList.innerHTML = watching.map(game => renderGameCard(game, targets[game.appId], false)).join("");
 
@@ -216,10 +374,10 @@ function renderGameCard(game, target, isDeal) {
     priceHtml = `<span class="game-price">Free</span>`;
   } else if (game.currentPrice !== null) {
     const onSaleClass = game.discountPercent > 0 ? "on-sale" : "";
-    priceHtml = `<span class="game-price ${onSaleClass}">\u00A3${game.currentPrice.toFixed(2)}</span>`;
+    priceHtml = `<span class="game-price ${onSaleClass}">${currentCurrencySymbol}${game.currentPrice.toFixed(2)}</span>`;
 
     if (game.discountPercent > 0) {
-      priceHtml += `<br><span class="game-original-price">\u00A3${game.originalPrice.toFixed(2)}</span>`;
+      priceHtml += `<br><span class="game-original-price">${currentCurrencySymbol}${game.originalPrice.toFixed(2)}</span>`;
       priceHtml += ` <span class="game-discount">-${game.discountPercent}%</span>`;
     }
   } else {
@@ -227,7 +385,7 @@ function renderGameCard(game, target, isDeal) {
   }
 
   const targetDisplay = target
-    ? `<span class="target-label ${game.currentPrice !== null && game.currentPrice <= target ? 'target-hit' : ''}">Target: \u00A3${target.toFixed(2)}</span>`
+    ? `<span class="target-label ${game.currentPrice !== null && game.currentPrice <= target ? 'target-hit' : ''}">Target: ${currentCurrencySymbol}${target.toFixed(2)}</span>`
     : "";
 
   return `
@@ -238,7 +396,7 @@ function renderGameCard(game, target, isDeal) {
         <div class="target-row">
           <input class="target-input" type="number" step="0.01" min="0"
             data-appid="${game.appId}"
-            placeholder="\u00A3 target"
+            placeholder="${currentCurrencySymbol} target"
             value="${target ? target.toFixed(2) : ''}">
           ${targetDisplay}
         </div>
@@ -252,14 +410,12 @@ function renderGameCard(game, target, isDeal) {
 }
 
 function attachGameListeners(targets) {
-  // Click card to open store page
   document.querySelectorAll(".game-card").forEach(card => {
     card.addEventListener("click", () => {
       chrome.tabs.create({ url: card.dataset.url });
     });
   });
 
-  // Stop target input clicks from opening store page
   document.querySelectorAll(".target-input").forEach(input => {
     input.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -272,7 +428,6 @@ function attachGameListeners(targets) {
     });
   });
 
-  // Target input changes
   document.querySelectorAll(".target-input").forEach(input => {
     input.addEventListener("change", async (e) => {
       const appId = parseInt(e.target.dataset.appid);
@@ -292,7 +447,6 @@ function attachGameListeners(targets) {
     });
   });
 
-  // Remove buttons
   document.querySelectorAll(".game-remove").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -315,14 +469,15 @@ checkNowBtn.addEventListener("click", async () => {
     return;
   }
 
-  for (const game of games) {
-    const details = await SteamAPI.getAppDetails(game.appId);
+  for (let i = 0; i < games.length; i++) {
+    const details = await SteamAPI.getAppDetails(games[i].appId);
     if (details) {
-      game.currentPrice = details.currentPrice;
-      game.originalPrice = details.originalPrice;
-      game.discountPercent = details.discountPercent;
+      games[i].currentPrice = details.currentPrice;
+      games[i].originalPrice = details.originalPrice;
+      games[i].discountPercent = details.discountPercent;
+      games[i].currency = details.currency;
     }
-    await new Promise(r => setTimeout(r, 250));
+    await new Promise(r => setTimeout(r, 300));
   }
 
   await chrome.storage.local.set({ trackedGames: games, lastChecked: Date.now() });
@@ -343,7 +498,12 @@ clearBtn.addEventListener("click", async () => {
 
   if (games.length === 0) return;
 
-  const confirmed = confirm(`Remove all ${games.length} tracked games?`);
+  const confirmed = await showModal(
+    `Remove all ${games.length} tracked games? This cannot be undone.`,
+    "Remove All",
+    true
+  );
+
   if (!confirmed) return;
 
   await chrome.storage.local.set({ trackedGames: [], priceTargets: {} });
@@ -392,23 +552,65 @@ importPageBtn.addEventListener("click", async () => {
         emptyState.classList.add("hidden");
         importHint.classList.remove("hidden");
         renderGames(games, targets);
-        importPageBtn.textContent = "Import Wishlist From This Page";
+        importPageBtn.textContent = "Import wishlist from this page";
         importPageBtn.disabled = false;
       }, 1500);
     } else {
       importPageBtn.textContent = "No games found on this page";
       setTimeout(() => {
-        importPageBtn.textContent = "Import Wishlist From This Page";
+        importPageBtn.textContent = "Import wishlist from this page";
         importPageBtn.disabled = false;
       }, 2000);
     }
   } catch (e) {
     importPageBtn.textContent = "Could not read page - try refreshing";
     setTimeout(() => {
-      importPageBtn.textContent = "Import Wishlist From This Page";
+      importPageBtn.textContent = "Import wishlist from this page";
       importPageBtn.disabled = false;
     }, 2000);
   }
+});
+
+regionSelect.addEventListener("change", async (e) => {
+  const region = e.target.value;
+  await chrome.storage.local.set({ region });
+
+  // Update currency symbol immediately
+  if (REGION_CURRENCY[region]) {
+    currentCurrencySymbol = REGION_CURRENCY[region].symbol;
+  }
+
+  // Re-render with new symbol immediately (prices will update after fetch)
+  const gameData = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
+  const games = gameData.trackedGames || [];
+  const targets = gameData.priceTargets || {};
+
+  if (games.length > 0) {
+    renderGames(games, targets);
+  }
+
+  // Then re-fetch prices with new region
+  if (games.length === 0) return;
+
+  checkNowBtn.classList.add("spinning");
+
+  for (let i = 0; i < games.length; i++) {
+    const details = await SteamAPI.getAppDetails(games[i].appId);
+    if (details) {
+      games[i].currentPrice = details.currentPrice;
+      games[i].originalPrice = details.originalPrice;
+      games[i].discountPercent = details.discountPercent;
+      games[i].currency = details.currency;
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  await chrome.storage.local.set({ trackedGames: games, lastChecked: Date.now() });
+
+  renderGames(games, (await chrome.storage.local.get(["priceTargets"])).priceTargets || {});
+  updateLastChecked();
+
+  checkNowBtn.classList.remove("spinning");
 });
 
 // ============================================================
