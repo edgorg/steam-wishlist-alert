@@ -321,20 +321,25 @@ async function addGame(appId, name) {
 
   const details = await SteamAPI.getAppDetails(appId);
 
-  const game = details || {
-    appId: appId,
-    name: name,
-    capsuleUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
-    storeUrl: `https://store.steampowered.com/app/${appId}`,
-    isFree: false,
-    released: true,
-    currentPrice: null,
-    originalPrice: null,
-    discountPercent: 0,
-    currency: "GBP"
-  };
+  if (!details) {
+    // Still add it but with basic info - prices will update on next check
+    const game = {
+      appId: appId,
+      name: name,
+      capsuleUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
+      storeUrl: `https://store.steampowered.com/app/${appId}`,
+      isFree: false,
+      released: true,
+      currentPrice: null,
+      originalPrice: null,
+      discountPercent: 0,
+      currency: "GBP"
+    };
+    games.push(game);
+  } else {
+    games.push(details);
+  }
 
-  games.push(game);
   await chrome.storage.local.set({ trackedGames: games });
 
   const targets = (await chrome.storage.local.get(["priceTargets"])).priceTargets || {};
