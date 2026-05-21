@@ -102,7 +102,7 @@ async function checkPrices() {
         if ((target && game.currentPrice <= target) || game.discountPercent >= 20) {
           chrome.notifications.create(`deal-${game.appId}`, {
             type: "basic",
-            iconUrl: "icons/icon128.png",
+            iconUrl: chrome.runtime.getURL("icons/icon128.png"),
             title: "Price Drop!",
             message: `${game.name} is now \u00A3${game.currentPrice.toFixed(2)} (was \u00A3${previousPrice.toFixed(2)}) - Save \u00A3${saving}!`
           });
