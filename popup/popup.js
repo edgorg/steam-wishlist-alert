@@ -3,21 +3,18 @@
 // ============================================================
 const searchInput = document.getElementById("search-input");
 const searchResults = document.getElementById("search-results");
-
+const importSection = document.getElementById("import-section");
+const importPageBtn = document.getElementById("import-page-btn");
 const dealsSection = document.getElementById("deals-section");
 const dealsList = document.getElementById("deals-list");
 const dealsCount = document.getElementById("deals-count");
-
 const gamesList = document.getElementById("games-list");
 const watchingCount = document.getElementById("watching-count");
 const emptyState = document.getElementById("empty-state");
 const importHint = document.getElementById("import-hint");
-
+const checkNowBtn = document.getElementById("check-now-btn");
 const clearBtn = document.getElementById("clear-btn");
-const refreshBtn = document.getElementById("refresh-btn");
-
-const importSection = document.getElementById("import-section");
-const importPageBtn = document.getElementById("import-page-btn");
+const lastCheckedEl = document.getElementById("last-checked");
 
 let searchTimeout = null;
 
@@ -35,11 +32,39 @@ async function init() {
     watchingCount.textContent = "0";
     dealsCount.textContent = "";
     dealsSection.classList.add("hidden");
+    dealsList.innerHTML = "";
     gamesList.innerHTML = "";
   } else {
     emptyState.classList.add("hidden");
     importHint.classList.remove("hidden");
     renderGames(games, targets);
+  }
+
+  updateLastChecked();
+  checkForWishlistPage();
+}
+
+// ============================================================
+// Last Checked Timestamp
+// ============================================================
+async function updateLastChecked() {
+  const data = await chrome.storage.local.get(["lastChecked"]);
+  if (data.lastChecked) {
+    const diff = Date.now() - data.lastChecked;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+
+    if (minutes < 1) {
+      lastCheckedEl.textContent = "Prices checked just now";
+    } else if (minutes < 60) {
+      lastCheckedEl.textContent = `Prices checked ${minutes} min${minutes === 1 ? "" : "s"} ago`;
+    } else if (hours < 24) {
+      lastCheckedEl.textContent = `Prices checked ${hours} hour${hours === 1 ? "" : "s"} ago`;
+    } else {
+      lastCheckedEl.textContent = `Prices checked ${Math.floor(hours / 24)} day${Math.floor(hours / 24) === 1 ? "" : "s"} ago`;
+    }
+  } else {
+    lastCheckedEl.textContent = "Prices not yet checked";
   }
 }
 
@@ -96,10 +121,8 @@ async function addGame(appId, name) {
   const data = await chrome.storage.local.get(["trackedGames"]);
   const games = data.trackedGames || [];
 
-  // Check if already tracking
   if (games.find(g => g.appId === appId)) return;
 
-  // Get full details
   const details = await SteamAPI.getAppDetails(appId);
 
   const game = details || {
@@ -118,7 +141,6 @@ async function addGame(appId, name) {
   games.push(game);
   await chrome.storage.local.set({ trackedGames: games });
 
-  // Re-render
   const targets = (await chrome.storage.local.get(["priceTargets"])).priceTargets || {};
   emptyState.classList.add("hidden");
   importHint.classList.remove("hidden");
@@ -139,9 +161,13 @@ async function removeGame(appId) {
   if (games.length === 0) {
     emptyState.classList.remove("hidden");
     importHint.classList.add("hidden");
+    watchingCount.textContent = "0";
+    dealsCount.textContent = "";
+    dealsSection.classList.add("hidden");
+    gamesList.innerHTML = "";
+  } else {
+    renderGames(games, targets);
   }
-
-  renderGames(games, targets);
 }
 
 // ============================================================
@@ -163,13 +189,15 @@ function renderGames(games, targets) {
     }
   }
 
-  // Deals
+  // Deals - sorted by biggest discount
   if (deals.length > 0) {
+    deals.sort((a, b) => b.discountPercent - a.discountPercent);
     dealsSection.classList.remove("hidden");
     dealsCount.textContent = deals.length;
     dealsList.innerHTML = deals.map(game => renderGameCard(game, targets[game.appId], true)).join("");
   } else {
     dealsSection.classList.add("hidden");
+    dealsCount.textContent = "";
   }
 
   // Watching
@@ -218,7 +246,7 @@ function renderGameCard(game, target, isDeal) {
       <div class="game-price-section">
         ${priceHtml}
       </div>
-      <button class="game-remove" data-appid="${game.appId}" title="Remove" onclick="event.stopPropagation()">x</button>
+      <button class="game-remove" data-appid="${game.appId}" title="Remove">x</button>
     </div>
   `;
 }
@@ -274,7 +302,40 @@ function attachGameListeners(targets) {
 }
 
 // ============================================================
-// Clear All Games
+// Check Now
+// ============================================================
+checkNowBtn.addEventListener("click", async () => {
+  checkNowBtn.classList.add("spinning");
+
+  const data = await chrome.storage.local.get(["trackedGames"]);
+  const games = data.trackedGames || [];
+
+  if (games.length === 0) {
+    checkNowBtn.classList.remove("spinning");
+    return;
+  }
+
+  for (const game of games) {
+    const details = await SteamAPI.getAppDetails(game.appId);
+    if (details) {
+      game.currentPrice = details.currentPrice;
+      game.originalPrice = details.originalPrice;
+      game.discountPercent = details.discountPercent;
+    }
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  await chrome.storage.local.set({ trackedGames: games, lastChecked: Date.now() });
+
+  const targets = (await chrome.storage.local.get(["priceTargets"])).priceTargets || {};
+  renderGames(games, targets);
+  updateLastChecked();
+
+  checkNowBtn.classList.remove("spinning");
+});
+
+// ============================================================
+// Clear All
 // ============================================================
 clearBtn.addEventListener("click", async () => {
   const data = await chrome.storage.local.get(["trackedGames"]);
@@ -297,33 +358,8 @@ clearBtn.addEventListener("click", async () => {
 });
 
 // ============================================================
-// Refresh Prices
+// Import from Wishlist Page
 // ============================================================
-refreshBtn.addEventListener("click", async () => {
-  refreshBtn.classList.add("spinning");
-
-  const data = await chrome.storage.local.get(["trackedGames"]);
-  const games = data.trackedGames || [];
-
-  for (const game of games) {
-    const details = await SteamAPI.getAppDetails(game.appId);
-    if (details) {
-      game.currentPrice = details.currentPrice;
-      game.originalPrice = details.originalPrice;
-      game.discountPercent = details.discountPercent;
-    }
-    await new Promise(r => setTimeout(r, 250));
-  }
-
-  await chrome.storage.local.set({ trackedGames: games });
-
-  const targets = (await chrome.storage.local.get(["priceTargets"])).priceTargets || {};
-  renderGames(games, targets);
-
-  refreshBtn.classList.remove("spinning");
-});
-
-// Check if current tab is a Steam wishlist page
 async function checkForWishlistPage() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -335,7 +371,6 @@ async function checkForWishlistPage() {
   }
 }
 
-// Import from current page
 importPageBtn.addEventListener("click", async () => {
   importPageBtn.disabled = true;
   importPageBtn.textContent = "Importing...";
@@ -346,13 +381,10 @@ importPageBtn.addEventListener("click", async () => {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_GAMES" });
 
     if (response && response.games && response.games.length > 0) {
-      // Send to background to import
       await chrome.runtime.sendMessage({ type: "IMPORT_WISHLIST", games: response.games });
 
       importPageBtn.textContent = `Imported ${response.games.length} games!`;
-      importPageBtn.style.borderColor = "var(--green)";
 
-      // Reload the game list
       setTimeout(async () => {
         const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
         const games = data.trackedGames || [];
@@ -378,8 +410,6 @@ importPageBtn.addEventListener("click", async () => {
     }, 2000);
   }
 });
-
-checkForWishlistPage();
 
 // ============================================================
 // Start
