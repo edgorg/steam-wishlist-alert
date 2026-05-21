@@ -683,3 +683,10 @@ body::-webkit-scrollbar-thumb {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
+.last-drop {
+  font-size: 9px;
+  color: var(--green);
+  margin-top: 2px;
+  display: block;
+}
