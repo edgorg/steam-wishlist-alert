@@ -24,6 +24,7 @@ const modalMessage = document.getElementById("modal-message");
 const modalConfirm = document.getElementById("modal-confirm");
 const modalCancel = document.getElementById("modal-cancel");
 const regionSelect = document.getElementById("region-select");
+const searchSpinner = document.getElementById("search-spinner");
 
 let searchTimeout = null;
 let currentCurrencySymbol = "\u00A3";
@@ -155,6 +156,15 @@ settingsBtn.addEventListener("click", () => {
   settingsPanel.classList.toggle("hidden");
 });
 
+document.addEventListener("click", (e) => {
+  if (!settingsPanel.classList.contains("hidden") &&
+      !settingsPanel.contains(e.target) &&
+      e.target !== settingsBtn &&
+      !settingsBtn.contains(e.target)) {
+    settingsPanel.classList.add("hidden");
+  }
+});
+
 themeToggle.querySelectorAll(".setting-toggle").forEach(btn => {
   btn.addEventListener("click", async () => {
     themeToggle.querySelectorAll(".setting-toggle").forEach(b => b.classList.remove("active"));
@@ -238,34 +248,48 @@ searchInput.addEventListener("input", (e) => {
 
   if (query.length < 2) {
     searchResults.classList.add("hidden");
+    searchSpinner.classList.add("hidden");
     return;
   }
 
+  searchSpinner.classList.remove("hidden");
+
   searchTimeout = setTimeout(async () => {
     const results = await SteamAPI.searchGame(query);
+    searchSpinner.classList.add("hidden");
     renderSearchResults(results);
   }, 400);
 });
 
-function renderSearchResults(results) {
+async function renderSearchResults(results) {
   if (results.length === 0) {
-    searchResults.classList.add("hidden");
+    searchResults.classList.remove("hidden");
+    searchResults.innerHTML = '<div class="search-no-results">No games found</div>';
     return;
   }
 
-  searchResults.classList.remove("hidden");
-  searchResults.innerHTML = results.slice(0, 5).map(game => `
-    <div class="search-result" data-appid="${game.appId}" data-name="${game.name}">
-      <img class="search-result-image" src="${game.capsuleUrl}" alt="${game.name}" loading="lazy">
-      <span class="search-result-name">${game.name}</span>
-      <span class="search-result-add">+ Add</span>
-    </div>
-  `).join("");
+  const data = await chrome.storage.local.get(["trackedGames"]);
+  const tracked = (data.trackedGames || []).map(g => g.appId);
 
-  searchResults.querySelectorAll(".search-result").forEach(el => {
+  searchResults.classList.remove("hidden");
+  searchResults.innerHTML = results.slice(0, 5).map(game => {
+    const isTracked = tracked.includes(game.appId);
+    return `
+      <div class="search-result ${isTracked ? 'already-tracked' : ''}" data-appid="${game.appId}" data-name="${game.name}">
+        <img class="search-result-image" src="${game.capsuleUrl}" alt="${game.name}" loading="lazy">
+        <span class="search-result-name">${game.name}</span>
+        <span class="search-result-add">${isTracked ? 'Tracked' : '+ Add'}</span>
+      </div>
+    `;
+  }).join("");
+
+  searchResults.querySelectorAll(".search-result:not(.already-tracked)").forEach(el => {
     el.addEventListener("click", async () => {
       const appId = parseInt(el.dataset.appid);
       const name = el.dataset.name;
+
+      el.querySelector(".search-result-add").textContent = "Adding...";
+      el.style.pointerEvents = "none";
 
       await addGame(appId, name);
       searchInput.value = "";
@@ -359,6 +383,7 @@ function renderGames(games, targets) {
     dealsCount.textContent = "";
   }
 
+  watching.sort((a, b) => a.name.localeCompare(b.name));
   watchingCount.textContent = watching.length;
   gamesList.innerHTML = watching.map(game => renderGameCard(game, targets[game.appId], false)).join("");
 
@@ -390,7 +415,7 @@ function renderGameCard(game, target, isDeal) {
 
   return `
     <div class="game-card ${isDeal ? 'on-sale' : ''}" data-appid="${game.appId}" data-url="${game.storeUrl}">
-      <img class="game-image" src="${game.capsuleUrl}" alt="${game.name}" loading="lazy">
+      <img class="game-image" src="${game.capsuleUrl}" alt="${game.name}" title="${game.name}" loading="lazy">
       <div class="game-info">
         <div class="game-name" title="${game.name}">${game.name}</div>
         <div class="target-row">
