@@ -7,7 +7,6 @@
   });
 
   function showCompareModal(deals, name, appId, symbol) {
-    // Remove existing
     const existing = document.getElementById("swa-compare-overlay");
     if (existing) existing.remove();
 
@@ -16,34 +15,45 @@
     const otherDeals = deals.filter(d => !d.isSteam).sort((a, b) => a.price - b.price);
 
     // Find cheapest
-    const cheapest = Math.min(...deals.map(d => d.price));
-    const cheapestCount = deals.filter(d => d.price === cheapest).length;
+    const allDeals = [...steamDeals, ...otherDeals];
+    const cheapest = Math.min(...allDeals.map(d => d.price));
+    const cheapestCount = allDeals.filter(d => d.price === cheapest).length;
     const hasUniqueCheapest = cheapestCount === 1;
 
-    // Build HTML
+    // Build list HTML
     let listHtml = "";
 
+    // Steam section
     if (steamDeals.length > 0) {
+      listHtml += '<div class="swa-group-label">Steam</div>';
       listHtml += steamDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, appId)).join("");
-      if (otherDeals.length > 0) {
-        listHtml += '<div class="swa-separator"></div>';
-        listHtml += '<div class="swa-group-label">Other Stores</div>';
-      }
     }
 
-    listHtml += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
+    // Other stores
+    if (otherDeals.length > 0) {
+      listHtml += '<div class="swa-group-label">Other Stores</div>';
+      listHtml += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
+    }
+
+    const bannerUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
 
     const overlay = document.createElement("div");
     overlay.id = "swa-compare-overlay";
     overlay.innerHTML = `
       <div class="swa-backdrop"></div>
       <div class="swa-modal">
-        <div class="swa-header">
-          <span class="swa-title">${name}</span>
-          <button class="swa-close">x</button>
-        </div>
-        <div class="swa-list">
-          ${listHtml}
+        <img class="swa-banner" src="${bannerUrl}" alt="${name}" onerror="this.style.display='none'">
+        <div class="swa-content">
+          <div class="swa-header">
+            <span class="swa-title">${name}</span>
+            <button class="swa-close">\u2715</button>
+          </div>
+          <div class="swa-list">
+            ${listHtml}
+          </div>
+          <div class="swa-credit">
+            Data from <a class="swa-credit-link" href="https://isthereanydeal.com/steam/app/${appId}/" target="_blank">IsThereAnyDeal.com</a>
+          </div>
         </div>
       </div>
       <style>
@@ -56,13 +66,16 @@
           z-index: 2147483647;
           font-family: "Segoe UI", Arial, sans-serif;
         }
+        #swa-compare-overlay * {
+          box-sizing: border-box;
+        }
         #swa-compare-overlay .swa-backdrop {
           position: absolute;
           top: 0;
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.7);
+          background: rgba(0, 0, 0, 0.75);
         }
         #swa-compare-overlay .swa-modal {
           position: absolute;
@@ -72,42 +85,57 @@
           background: #1b2838;
           border: 1px solid #2a475e;
           border-radius: 12px;
-          padding: 20px;
-          width: 450px;
-          max-height: 500px;
+          width: 480px;
+          max-height: 550px;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
           animation: swaFadeIn 0.2s ease;
+          overflow: hidden;
         }
         @keyframes swaFadeIn {
           from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
           to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
+        #swa-compare-overlay .swa-banner {
+          width: 100%;
+          height: 120px;
+          object-fit: cover;
+          display: block;
+        }
+        #swa-compare-overlay .swa-content {
+          padding: 16px 20px 20px;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          overflow: hidden;
+        }
         #swa-compare-overlay .swa-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 16px;
-          padding-bottom: 12px;
+          margin-bottom: 14px;
+          padding-bottom: 10px;
           border-bottom: 1px solid #2a475e;
         }
         #swa-compare-overlay .swa-title {
-          font-size: 16px;
+          font-size: 18px;
           font-weight: 600;
-          color: #c7d5e0;
+          color: #ffffff;
         }
         #swa-compare-overlay .swa-close {
           background: none;
           border: none;
           color: #8f98a0;
-          font-size: 20px;
+          font-size: 18px;
           cursor: pointer;
           padding: 4px 8px;
           border-radius: 4px;
+          line-height: 1;
         }
         #swa-compare-overlay .swa-close:hover {
-          color: #c7d5e0;
+          color: #ffffff;
+          background: #2a475e;
         }
         #swa-compare-overlay .swa-list {
           display: flex;
@@ -135,15 +163,15 @@
           border: 1px solid #2a475e;
           border-radius: 8px;
           cursor: pointer;
-          transition: border-color 0.15s ease;
-          text-decoration: none;
+          transition: border-color 0.15s ease, background 0.15s ease;
         }
         #swa-compare-overlay .swa-item:hover {
           border-color: #66c0f4;
+          background: #2a475e;
         }
         #swa-compare-overlay .swa-item.cheapest {
           border-color: #6cc644;
-          background: rgba(108, 198, 68, 0.05);
+          background: rgba(108, 198, 68, 0.08);
         }
         #swa-compare-overlay .swa-store-info {
           display: flex;
@@ -152,9 +180,11 @@
           flex: 1;
         }
         #swa-compare-overlay .swa-store-icon {
-          width: 18px;
-          height: 18px;
-          border-radius: 3px;
+          width: 20px;
+          height: 20px;
+          border-radius: 4px;
+          background: #2a475e;
+          padding: 2px;
         }
         #swa-compare-overlay .swa-store-details {
           display: flex;
@@ -164,6 +194,7 @@
         #swa-compare-overlay .swa-store-name {
           font-size: 13px;
           color: #c7d5e0;
+          font-weight: 500;
         }
         #swa-compare-overlay .swa-store-low {
           font-size: 10px;
@@ -185,13 +216,14 @@
           gap: 2px;
         }
         #swa-compare-overlay .swa-price {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 600;
           color: #6cc644;
         }
         #swa-compare-overlay .swa-price.not-cheapest {
           color: #8f98a0;
           font-weight: 400;
+          font-size: 14px;
         }
         #swa-compare-overlay .swa-discount {
           font-size: 10px;
@@ -201,31 +233,52 @@
           padding: 2px 5px;
           border-radius: 3px;
         }
-        #swa-compare-overlay .swa-separator {
-          height: 1px;
-          background: #66c0f4;
-          opacity: 0.3;
-          margin: 8px 0;
-        }
+        
         #swa-compare-overlay .swa-group-label {
           font-size: 10px;
           font-weight: 600;
-          color: #56707f;
+          color: #66c0f4;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          padding: 4px 0;
+          padding: 4px 0 2px;
+        }
+
+        #swa-compare-overlay .swa-credit {
+          text-align: center;
+          padding-top: 10px;
+          margin-top: 10px;
+          border-top: 1px solid #2a475e;
+          font-size: 10px;
+          color: #56707f;
+        }
+        #swa-compare-overlay .swa-credit-link {
+          color: #66c0f4;
+          text-decoration: none;
+        }
+        #swa-compare-overlay .swa-credit-link:hover {
+          text-decoration: underline;
         }
       </style>
     `;
 
     document.body.appendChild(overlay);
 
+    // Freeze background scrolling
+    document.body.style.overflow = "hidden";
+
     // Close handlers
-    overlay.querySelector(".swa-backdrop").addEventListener("click", () => overlay.remove());
-    overlay.querySelector(".swa-close").addEventListener("click", () => overlay.remove());
+    overlay.querySelector(".swa-backdrop").addEventListener("click", () => {
+      overlay.remove();
+      document.body.style.overflow = "";
+    });
+    overlay.querySelector(".swa-close").addEventListener("click", () => {
+      overlay.remove();
+      document.body.style.overflow = "";
+    });
     document.addEventListener("keydown", function escHandler(e) {
       if (e.key === "Escape") {
         overlay.remove();
+        document.body.style.overflow = "";
         document.removeEventListener("keydown", escHandler);
       }
     });
@@ -242,7 +295,51 @@
   function renderItem(deal, cheapest, hasUniqueCheapest, symbol, steamAppId) {
     const isCheapest = hasUniqueCheapest && deal.price === cheapest;
     const url = deal.isSteam && steamAppId ? `https://store.steampowered.com/app/${steamAppId}` : deal.dealUrl;
-    const iconUrl = `https://www.isthereanydeal.com/images/shops/${deal.storeId}-1.svg`;
+
+    // Store favicon approach - more reliable than ITAD icons
+    const storeFavicons = {
+      "steam": "https://store.steampowered.com/favicon.ico",
+      "gog": "https://www.gog.com/favicon.ico",
+      "humble store": "https://cdn.humblebundle.com/static/hashed/4c8bbc6fc7b2b8a9fa21e895afe1157188e28bfb.png",
+      "humble bundle": "https://cdn.humblebundle.com/static/hashed/4c8bbc6fc7b2b8a9fa21e895afe1157188e28bfb.png",
+      "humble choice": "https://cdn.humblebundle.com/static/hashed/4c8bbc6fc7b2b8a9fa21e895afe1157188e28bfb.png",
+      "epic games store": "https://static-assets-prod.epicgames.com/epic-store/static/favicon.ico",
+      "epic game store": "https://static-assets-prod.epicgames.com/epic-store/static/favicon.ico",
+      "green man gaming": "https://www.greenmangaming.com/favicon.ico",
+      "greenmangaming": "https://www.greenmangaming.com/favicon.ico",
+      "fanatical": "https://www.fanatical.com/favicon.ico",
+      "gamesplanet": "https://uk.gamesplanet.com/favicon.ico",
+      "gamesplanet uk": "https://uk.gamesplanet.com/favicon.ico",
+      "gamesplanet us": "https://us.gamesplanet.com/favicon.ico",
+      "voidu": "https://www.voidu.com/favicon.ico",
+      "gamebillet": "https://www.gamebillet.com/favicon.ico",
+      "dlgamer": "https://www.dlgamer.com/favicon.ico",
+      "2game": "https://2game.com/favicon.ico",
+      "noctre": "https://www.noctre.com/favicon.ico",
+      "dreamgame": "https://www.dreamgame.com/favicon.ico",
+      "indiegala": "https://www.indiegala.com/favicon.ico",
+      "wingamestore": "https://www.wingamestore.com/favicon.ico",
+      "allyouplay": "https://www.allyouplay.com/favicon.ico",
+      "direct2drive": "https://www.direct2drive.com/favicon.ico",
+      "microsoft store": "https://apps.microsoft.com/favicon.ico",
+      "xbox": "https://www.xbox.com/favicon.ico",
+      "xbox store": "https://www.xbox.com/favicon.ico",
+      "ubisoft store": "https://store.ubisoft.com/favicon.ico",
+      "ubisoft": "https://store.ubisoft.com/favicon.ico",
+      "ea app": "https://www.ea.com/favicon.ico",
+      "origin": "https://www.ea.com/favicon.ico",
+      "battlenet": "https://www.blizzard.com/favicon.ico",
+      "battle.net": "https://www.blizzard.com/favicon.ico",
+      "blizzard": "https://www.blizzard.com/favicon.ico",
+      "nuuvem": "https://www.nuuvem.com/favicon.ico",
+      "gamersgate": "https://www.gamersgate.com/favicon.ico",
+      "amazon": "https://www.amazon.com/favicon.ico",
+      "itch.io": "https://itch.io/favicon.ico",
+      "squenix": "https://store.square-enix-games.com/favicon.ico",
+      "square enix": "https://store.square-enix-games.com/favicon.ico"
+    };
+
+    const iconUrl = storeFavicons[deal.store.toLowerCase()] || "";
 
     let lowHtml = "";
     if (deal.storeLow !== null && deal.storeLow < deal.price) {
@@ -254,7 +351,7 @@
     return `
       <div class="swa-item ${isCheapest ? 'cheapest' : ''}" data-url="${url}">
         <div class="swa-store-info">
-          <img class="swa-store-icon" src="${iconUrl}" alt="" onerror="this.style.display='none'">
+          ${iconUrl ? `<img class="swa-store-icon" src="${iconUrl}" alt="" onerror="this.style.display='none'">` : ''}
           <div class="swa-store-details">
             <span class="swa-store-name">${deal.store}</span>
             ${lowHtml}

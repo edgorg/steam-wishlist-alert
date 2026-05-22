@@ -599,19 +599,23 @@ async function openCompareModal(deals, name, appId) {
   if (!tab) return;
 
   // Inject the compare modal script
-  await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ["content/compare-modal.js"]
-  });
+    try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content/compare-modal.js"]
+    });
 
-  // Send the data
-  await chrome.tabs.sendMessage(tab.id, {
-    type: "SHOW_COMPARE",
-    deals,
-    name,
-    appId: appId.toString(),
-    symbol
-  });
+    await chrome.tabs.sendMessage(tab.id, {
+      type: "SHOW_COMPARE",
+      deals,
+      name,
+      appId: appId.toString(),
+      symbol
+    });
+
+    // Close the popup
+    window.close();
+  } catch (e) {}
 }
 
 // ============================================================
