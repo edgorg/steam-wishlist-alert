@@ -8,11 +8,17 @@
     "alarms",
     "notifications",
     "activeTab",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "https://store.steampowered.com/*",
-    "https://cdn.akamai.steamstatic.com/*"
+    "https://steamcommunity.com/*",
+    "https://api.steampowered.com/*",
+    "https://cdn.akamai.steamstatic.com/*",
+    "https://api.isthereanydeal.com/*",
+    "https://www.isthereanydeal.com/*",
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "popup/popup.html",
@@ -36,5 +42,11 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content/compare-modal.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

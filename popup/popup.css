@@ -807,7 +807,7 @@ body::-webkit-scrollbar-thumb {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -816,25 +816,28 @@ body::-webkit-scrollbar-thumb {
 }
 
 .compare-modal {
-  background: var(--bg-card);
+  background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  width: 300px;
-  max-height: 350px;
+  border-radius: 12px;
+  padding: 20px;
+  width: 380px;
+  max-height: 450px;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .compare-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 .compare-modal-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -842,10 +845,11 @@ body::-webkit-scrollbar-thumb {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 4px 8px;
   border-radius: 4px;
+  transition: color 0.15s ease;
 }
 
 .compare-modal-close:hover {
@@ -864,10 +868,10 @@ body::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--bg-secondary);
+  padding: 12px 14px;
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
@@ -979,6 +983,89 @@ body::-webkit-scrollbar-thumb {
 
 .compare-separator {
   height: 1px;
+  background: var(--accent);
+  opacity: 0.3;
+  margin: 10px 0;
+}
+
+.compare-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+}
+
+.compare-modal-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.compare-modal-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.compare-modal-list::-webkit-scrollbar-thumb {
   background: var(--border);
-  margin: 6px 0;
+  border-radius: 2px;
+}
+
+.compare-modal-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.compare-store-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compare-history-low {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.compare-price-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.compare-modal-store-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.compare-store-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+}
+
+.compare-modal-store {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.compare-modal-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.compare-modal-price.not-cheapest {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.compare-modal-discount {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--discount-bg);
+  color: var(--discount-text);
+  padding: 2px 5px;
+  border-radius: 3px;
 }

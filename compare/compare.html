@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Comparison</title>
+  <link rel="stylesheet" href="../popup/popup.css">
+  <style>
+    body {
+      width: 100%;
+      max-height: 100vh;
+      padding: 20px;
+    }
+
+    .compare-page {
+      max-width: 450px;
+      margin: 0 auto;
+    }
+
+    .compare-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .compare-page-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .compare-page-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .compare-page-close:hover {
+      color: var(--text-primary);
+    }
+
+    .compare-page-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="compare-page">
+    <div class="compare-page-header">
+      <span class="compare-page-title" id="compare-title">Loading...</span>
+      <button class="compare-page-close" id="close-btn">x</button>
+    </div>
+    <div class="compare-page-list" id="compare-list"></div>
+  </div>
+
+  <script src="../services/config.js"></script>
+  <script src="../services/steam-api.js"></script>
+  <script src="../services/itad-api.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const appId = params.get("appId");
+    const name = params.get("name");
+
+    document.getElementById("compare-title").textContent = name || "Compare Prices";
+
+    document.getElementById("close-btn").addEventListener("click", () => {
+      window.close();
+    });
+
+    async function loadPrices() {
+      const deals = await ITAD_API.getDealsForSteamApp(appId, name);
+
+      if (!deals || deals.length === 0) {
+        document.getElementById("compare-list").innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No deals found for this game</p>';
+        return;
+      }
+
+      // Remove duplicates
+      const unique = [];
+      const seen = new Set();
+      for (const deal of deals) {
+        const key = `${deal.store}-${deal.price}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(deal);
+        }
+      }
+
+      // Split into Steam and others
+      const steamDeals = unique.filter(d => d.isSteam);
+      const otherDeals = unique.filter(d => !d.isSteam).sort((a, b) => a.price - b.price);
+
+      // Find cheapest
+      const cheapest = Math.min(...unique.map(d => d.price));
+      const cheapestCount = unique.filter(d => d.price === cheapest).length;
+      const hasUniqueCheapest = cheapestCount === 1;
+
+      // Currency
+      const dealCurrency = unique[0]?.currency || "GBP";
+      const symbols = { "GBP": "\u00A3", "USD": "$", "EUR": "\u20AC" };
+      const symbol = symbols[dealCurrency] || dealCurrency + " ";
+
+      let html = "";
+
+      // Steam
+      if (steamDeals.length > 0) {
+        html += steamDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, appId)).join("");
+        if (otherDeals.length > 0) html += '<div class="compare-separator"></div><div class="compare-group-label">Other Stores</div>';
+      }
+
+      // Others
+      html += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
+
+      document.getElementById("compare-list").innerHTML = html;
+
+      // Click handlers
+      document.querySelectorAll(".compare-modal-item").forEach(item => {
+        item.addEventListener("click", () => {
+          const url = item.dataset.url;
+          if (url) chrome.tabs.create({ url });
+        });
+      });
+    }
+
+    function renderItem(deal, cheapest, hasUniqueCheapest, symbol, steamAppId) {
+      const isCheapest = hasUniqueCheapest && deal.price === cheapest;
+      const url = deal.isSteam && steamAppId ? `https://store.steampowered.com/app/${steamAppId}` : deal.dealUrl;
+      const iconUrl = `https://www.isthereanydeal.com/images/shops/${deal.storeId}-1.svg`;
+
+      let historyHtml = "";
+      if (deal.storeLow !== null && deal.storeLow < deal.price) {
+        historyHtml = `<span class="compare-history-low">Store low: ${symbol}${deal.storeLow.toFixed(2)}</span>`;
+      } else if (deal.historyLow !== null && deal.historyLow < deal.price) {
+        historyHtml = `<span class="compare-history-low">All-time low: ${symbol}${deal.historyLow.toFixed(2)}</span>`;
+      }
+
+      return `
+        <div class="compare-modal-item ${isCheapest ? 'cheapest' : ''}" data-url="${url}">
+          <div class="compare-modal-store-info">
+            <img class="compare-store-icon" src="${iconUrl}" alt="" onerror="this.style.display='none'">
+            <div class="compare-store-details">
+              <span class="compare-modal-store">${deal.store}</span>
+              ${historyHtml}
+            </div>
+            ${isCheapest ? '<span class="cheapest-badge">Best price</span>' : ''}
+          </div>
+          <div class="compare-price-details">
+            <span class="compare-modal-price ${hasUniqueCheapest && !isCheapest ? 'not-cheapest' : ''}">${symbol}${deal.price.toFixed(2)}</span>
+            ${deal.discount > 0 ? `<span class="compare-modal-discount">-${deal.discount}%</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // Apply theme
+    chrome.storage.local.get(["theme"], (data) => {
+      const theme = data.theme || "dark";
+      if (theme === "system") {
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+      } else {
+        document.documentElement.setAttribute("data-theme", theme);
+      }
+    });
+
+    loadPrices();
+  </script>
+</body>
+</html>

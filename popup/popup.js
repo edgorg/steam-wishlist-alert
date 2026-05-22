@@ -26,10 +26,6 @@ const modalCancel = document.getElementById("modal-cancel");
 const regionSelect = document.getElementById("region-select");
 const searchSpinner = document.getElementById("search-spinner");
 const premiumToggle = document.getElementById("premium-toggle");
-const compareOverlay = document.getElementById("compare-overlay");
-const compareModalTitle = document.getElementById("compare-modal-title");
-const compareModalList = document.getElementById("compare-modal-list");
-const compareModalClose = document.getElementById("compare-modal-close");
 const compareCache = {};
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
@@ -465,7 +461,7 @@ function renderGameCard(game, target, isDeal) {
               data-appid="${game.appId}"
               placeholder="${currentCurrencySymbol} target"
               value="${target ? target.toFixed(2) : ''}">
-              ${isPremium ? `<button class="compare-btn" data-appid="${game.appId}" data-name="${game.name}" onclick="event.stopPropagation()" title="Compare prices"><svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></button>` : ''}
+              ${isPremium ? `<button class="compare-btn" data-appid="${game.appId}" data-name="${game.name}" title="Compare prices"><svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></button>` : ''}
           </div>
         </div>
         ${game.lastDrop ? `<span class="last-drop">Dropped ${formatTimeAgo(game.lastDrop)}</span>` : ''}
@@ -552,10 +548,10 @@ function showLimitWarning() {
 async function loadComparison(appId, name) {
   const btn = document.querySelector(`.compare-btn[data-appid="${appId}"]`);
 
-  // Check cache first
+  // Check cache
   const cached = compareCache[appId];
   if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-    showCompareModal(cached.deals, name, appId, btn);
+    openCompareModal(cached.deals, name, appId);
     return;
   }
 
@@ -565,7 +561,7 @@ async function loadComparison(appId, name) {
     btn.innerHTML = '<div class="spinner-tiny"></div>';
   }
 
-  const deals = await CheapSharkAPI.searchDeals(name, appId);
+  const deals = await ITAD_API.getDealsForSteamApp(appId, name);
 
   // Restore icon
   if (btn) {
@@ -573,108 +569,48 @@ async function loadComparison(appId, name) {
     btn.innerHTML = '<svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
   }
 
-  // Cache results
+  if (!deals || deals.length === 0) {
+    if (btn) {
+      btn.classList.add("flash-red");
+      btn.innerHTML = '<span style="font-size:9px;color:white;">0</span>';
+      setTimeout(() => {
+        btn.classList.remove("flash-red");
+        btn.innerHTML = '<svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
+      }, 1000);
+    }
+    return;
+  }
+
+  // Cache
   compareCache[appId] = { deals, timestamp: Date.now() };
 
-  showCompareModal(deals, name, appId, btn);
+  openCompareModal(deals, name, appId);
 }
 
-function showCompareModal(deals, name, appId, btn) {
-  if (deals.length === 0) {
-    if (btn) {
-      btn.classList.add("flash-red");
-      btn.innerHTML = '<span style="font-size:9px;color:white;">0</span>';
-      setTimeout(() => {
-        btn.classList.remove("flash-red");
-        btn.innerHTML = '<svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
-      }, 1000);
-    }
-    return;
-  }
+async function openCompareModal(deals, name, appId) {
+  // Get currency symbol
+  const dealCurrency = deals[0]?.currency || "GBP";
+  const symbols = { "GBP": "\u00A3", "USD": "$", "EUR": "\u20AC" };
+  const symbol = symbols[dealCurrency] || dealCurrency + " ";
 
-  // Remove duplicates
-  const unique = [];
-  const seen = new Set();
-  for (const deal of deals) {
-    const key = `${deal.store}-${deal.price}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(deal);
-    }
-  }
+  // Get active tab
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  if (unique.length === 0) {
-    if (btn) {
-      btn.classList.add("flash-red");
-      btn.innerHTML = '<span style="font-size:9px;color:white;">0</span>';
-      setTimeout(() => {
-        btn.classList.remove("flash-red");
-        btn.innerHTML = '<svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
-      }, 1000);
-    }
-    return;
-  }
+  if (!tab) return;
 
-  // Split into Steam and others
-  const steamDeals = unique.filter(d => d.isSteam);
-  const otherDeals = unique.filter(d => !d.isSteam).sort((a, b) => a.price - b.price);
+  // Inject the compare modal script
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["content/compare-modal.js"]
+  });
 
-  // Find cheapest across all
-  const cheapest = Math.min(...unique.map(d => d.price));
-  const cheapestCount = unique.filter(d => d.price === cheapest).length;
-  const hasUniqueCheapest = cheapestCount === 1;
-
-  compareModalTitle.textContent = name;
-  compareOverlay.classList.remove("hidden");
-
-  let html = "";
-
-  // Steam section
-  if (steamDeals.length > 0) {
-    html += steamDeals.map(deal => `
-      <div class="compare-modal-item ${hasUniqueCheapest && deal.price === cheapest ? 'cheapest' : ''}" data-url="https://store.steampowered.com/app/${appId}">
-        <div class="compare-modal-store-info">
-          <img class="compare-store-icon" src="https://www.cheapshark.com/img/stores/icons/0.png" alt="Steam" onerror="this.style.display='none'">
-          <span class="compare-modal-store">Steam</span>
-          ${hasUniqueCheapest && deal.price === cheapest ? '<span class="cheapest-badge">Best price</span>' : ''}
-        </div>
-        <span>
-          <span class="compare-modal-price ${hasUniqueCheapest && deal.price !== cheapest ? 'not-cheapest' : ''}">$${deal.price.toFixed(2)}</span>
-          ${deal.discount > 0 ? `<span class="compare-modal-discount">-${deal.discount}%</span>` : ''}
-        </span>
-      </div>
-    `).join("");
-
-    // Separator
-    if (otherDeals.length > 0) {
-      html += '<div class="compare-separator"></div>';
-    }
-  }
-
-  // Other stores
-  html += otherDeals.map(deal => `
-    <div class="compare-modal-item ${hasUniqueCheapest && deal.price === cheapest ? 'cheapest' : ''}" data-url="${deal.dealUrl}">
-      <div class="compare-modal-store-info">
-        <img class="compare-store-icon" src="https://www.cheapshark.com/img/stores/icons/${parseInt(deal.storeId) - 1}.png" alt="${deal.store}" onerror="this.style.display='none'">
-        <span class="compare-modal-store">${deal.store}</span>
-        ${hasUniqueCheapest && deal.price === cheapest ? '<span class="cheapest-badge">Best price</span>' : ''}
-      </div>
-      <span>
-        <span class="compare-modal-price ${hasUniqueCheapest && deal.price !== cheapest ? 'not-cheapest' : ''}">$${deal.price.toFixed(2)}</span>
-        ${deal.discount > 0 ? `<span class="compare-modal-discount">-${deal.discount}%</span>` : ''}
-      </span>
-    </div>
-  `).join("");
-
-  compareModalList.innerHTML = html;
-
-  compareModalList.querySelectorAll(".compare-modal-item").forEach(item => {
-    item.addEventListener("click", () => {
-      const url = item.dataset.url;
-      if (url) {
-        chrome.tabs.create({ url });
-      }
-    });
+  // Send the data
+  await chrome.tabs.sendMessage(tab.id, {
+    type: "SHOW_COMPARE",
+    deals,
+    name,
+    appId: appId.toString(),
+    symbol
   });
 }
 
@@ -869,16 +805,6 @@ regionSelect.addEventListener("change", async (e) => {
   updateLastChecked();
 
   checkNowBtn.classList.remove("spinning");
-});
-
-compareModalClose.addEventListener("click", () => {
-  compareOverlay.classList.add("hidden");
-});
-
-compareOverlay.addEventListener("click", (e) => {
-  if (e.target === compareOverlay) {
-    compareOverlay.classList.add("hidden");
-  }
 });
 
 // ============================================================
