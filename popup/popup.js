@@ -25,9 +25,18 @@ const modalConfirm = document.getElementById("modal-confirm");
 const modalCancel = document.getElementById("modal-cancel");
 const regionSelect = document.getElementById("region-select");
 const searchSpinner = document.getElementById("search-spinner");
+const premiumToggle = document.getElementById("premium-toggle");
+const compareOverlay = document.getElementById("compare-overlay");
+const compareModalTitle = document.getElementById("compare-modal-title");
+const compareModalList = document.getElementById("compare-modal-list");
+const compareModalClose = document.getElementById("compare-modal-close");
+const compareCache = {};
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 let searchTimeout = null;
 let currentCurrencySymbol = "\u00A3";
+let isPremium = false;
+let inputFocused = false;
 
 const REGION_CURRENCY = {
   gb: { code: "GBP", symbol: "\u00A3" },
@@ -194,7 +203,13 @@ function applyTheme(theme) {
 }
 
 async function loadSettings() {
-  const data = await chrome.storage.local.get(["theme", "notifications", "region"]);
+  const data = await chrome.storage.local.get(["theme", "notifications", "region", "premium"]);
+
+  const premium = data.premium || false;
+  isPremium = premium;
+  premiumToggle.querySelectorAll(".setting-toggle").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.value === (premium ? "on" : "off"));
+  });
 
   const theme = data.theme || "dark";
   applyTheme(theme);
@@ -319,6 +334,12 @@ async function addGame(appId, name) {
 
   if (games.find(g => g.appId === appId)) return;
 
+  // Free tier limit
+  if (!isPremium && games.length >= 5) {
+    showLimitWarning();
+    return;
+  }
+
   const details = await SteamAPI.getAppDetails(appId);
 
   if (!details) {
@@ -401,7 +422,14 @@ function renderGames(games, targets) {
   }
 
   watching.sort((a, b) => a.name.localeCompare(b.name));
-  watchingCount.textContent = watching.length;
+
+  const totalGames = deals.length + watching.length;
+  if (isPremium) {
+    watchingCount.textContent = watching.length;
+  } else {
+    watchingCount.textContent = `${watching.length} (${totalGames}/5)`;
+  }
+
   gamesList.innerHTML = watching.map(game => renderGameCard(game, targets[game.appId], false)).join("");
 
   attachGameListeners(targets);
@@ -426,23 +454,22 @@ function renderGameCard(game, target, isDeal) {
     priceHtml = `<span class="game-not-released">Price unavailable</span>`;
   }
 
-  const targetDisplay = target
-    ? `<span class="target-label ${game.currentPrice !== null && game.currentPrice <= target ? 'target-hit' : ''}">Target: ${currentCurrencySymbol}${target.toFixed(2)}</span>`
-    : "";
-
   return `
     <div class="game-card ${isDeal ? 'on-sale' : ''}" data-appid="${game.appId}" data-url="${game.storeUrl}">
       <img class="game-image" src="${game.capsuleUrl}" alt="${game.name}" title="${game.name}" loading="lazy">
       <div class="game-info">
         <div class="game-name" title="${game.name}">${game.name}</div>
         <div class="target-row">
-          <input class="target-input" type="number" step="0.01" min="0"
-            data-appid="${game.appId}"
-            placeholder="${currentCurrencySymbol} target"
-            value="${target ? target.toFixed(2) : ''}">
-          ${targetDisplay}
+          <div class="target-input-group">
+            <input class="target-input ${target && game.currentPrice !== null && game.currentPrice <= target ? 'target-hit' : ''}" type="number" step="0.01" min="0"
+              data-appid="${game.appId}"
+              placeholder="${currentCurrencySymbol} target"
+              value="${target ? target.toFixed(2) : ''}">
+              ${isPremium ? `<button class="compare-btn" data-appid="${game.appId}" data-name="${game.name}" onclick="event.stopPropagation()" title="Compare prices"><svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></button>` : ''}
+          </div>
         </div>
         ${game.lastDrop ? `<span class="last-drop">Dropped ${formatTimeAgo(game.lastDrop)}</span>` : ''}
+        <div class="compare-list hidden" id="compare-${game.appId}"></div>
       </div>
       <div class="game-price-section">
         ${priceHtml}
@@ -455,6 +482,7 @@ function renderGameCard(game, target, isDeal) {
 function attachGameListeners(targets) {
   document.querySelectorAll(".game-card").forEach(card => {
     card.addEventListener("click", () => {
+      if (inputFocused) return;
       chrome.tabs.create({ url: card.dataset.url });
     });
   });
@@ -468,6 +496,28 @@ function attachGameListeners(targets) {
     });
     input.addEventListener("focus", (e) => {
       e.stopPropagation();
+      inputFocused = true;
+    });
+    input.addEventListener("blur", () => {
+      // Small delay so the click event on the card doesn't fire immediately
+      setTimeout(() => { inputFocused = false; }, 200);
+    });
+  });
+
+  // Compare buttons (premium)
+  document.querySelectorAll(".compare-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const appId = btn.dataset.appid;
+      const name = btn.dataset.name;
+      loadComparison(appId, name);
+    });
+  });
+
+  document.querySelectorAll(".game-remove").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeGame(parseInt(btn.dataset.appid));
     });
   });
 
@@ -489,11 +539,141 @@ function attachGameListeners(targets) {
       renderGames(data.trackedGames || [], updatedTargets);
     });
   });
+}
 
-  document.querySelectorAll(".game-remove").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      removeGame(parseInt(btn.dataset.appid));
+function showLimitWarning() {
+  showModal(
+    "Free tier is limited to 5 games. Upgrade to Premium for unlimited tracking and price comparison across multiple stores.",
+    "OK",
+    false
+  );
+}
+
+async function loadComparison(appId, name) {
+  const btn = document.querySelector(`.compare-btn[data-appid="${appId}"]`);
+
+  // Check cache first
+  const cached = compareCache[appId];
+  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+    showCompareModal(cached.deals, name, appId, btn);
+    return;
+  }
+
+  // Show loading state
+  if (btn) {
+    btn.classList.add("loading");
+    btn.innerHTML = '<div class="spinner-tiny"></div>';
+  }
+
+  const deals = await CheapSharkAPI.searchDeals(name, appId);
+
+  // Restore icon
+  if (btn) {
+    btn.classList.remove("loading");
+    btn.innerHTML = '<svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
+  }
+
+  // Cache results
+  compareCache[appId] = { deals, timestamp: Date.now() };
+
+  showCompareModal(deals, name, appId, btn);
+}
+
+function showCompareModal(deals, name, appId, btn) {
+  if (deals.length === 0) {
+    if (btn) {
+      btn.classList.add("flash-red");
+      btn.innerHTML = '<span style="font-size:9px;color:white;">0</span>';
+      setTimeout(() => {
+        btn.classList.remove("flash-red");
+        btn.innerHTML = '<svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
+      }, 1000);
+    }
+    return;
+  }
+
+  // Remove duplicates
+  const unique = [];
+  const seen = new Set();
+  for (const deal of deals) {
+    const key = `${deal.store}-${deal.price}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(deal);
+    }
+  }
+
+  if (unique.length === 0) {
+    if (btn) {
+      btn.classList.add("flash-red");
+      btn.innerHTML = '<span style="font-size:9px;color:white;">0</span>';
+      setTimeout(() => {
+        btn.classList.remove("flash-red");
+        btn.innerHTML = '<svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>';
+      }, 1000);
+    }
+    return;
+  }
+
+  // Split into Steam and others
+  const steamDeals = unique.filter(d => d.isSteam);
+  const otherDeals = unique.filter(d => !d.isSteam).sort((a, b) => a.price - b.price);
+
+  // Find cheapest across all
+  const cheapest = Math.min(...unique.map(d => d.price));
+  const cheapestCount = unique.filter(d => d.price === cheapest).length;
+  const hasUniqueCheapest = cheapestCount === 1;
+
+  compareModalTitle.textContent = name;
+  compareOverlay.classList.remove("hidden");
+
+  let html = "";
+
+  // Steam section
+  if (steamDeals.length > 0) {
+    html += steamDeals.map(deal => `
+      <div class="compare-modal-item ${hasUniqueCheapest && deal.price === cheapest ? 'cheapest' : ''}" data-url="https://store.steampowered.com/app/${appId}">
+        <div class="compare-modal-store-info">
+          <img class="compare-store-icon" src="https://www.cheapshark.com/img/stores/icons/0.png" alt="Steam" onerror="this.style.display='none'">
+          <span class="compare-modal-store">Steam</span>
+          ${hasUniqueCheapest && deal.price === cheapest ? '<span class="cheapest-badge">Best price</span>' : ''}
+        </div>
+        <span>
+          <span class="compare-modal-price ${hasUniqueCheapest && deal.price !== cheapest ? 'not-cheapest' : ''}">$${deal.price.toFixed(2)}</span>
+          ${deal.discount > 0 ? `<span class="compare-modal-discount">-${deal.discount}%</span>` : ''}
+        </span>
+      </div>
+    `).join("");
+
+    // Separator
+    if (otherDeals.length > 0) {
+      html += '<div class="compare-separator"></div>';
+    }
+  }
+
+  // Other stores
+  html += otherDeals.map(deal => `
+    <div class="compare-modal-item ${hasUniqueCheapest && deal.price === cheapest ? 'cheapest' : ''}" data-url="${deal.dealUrl}">
+      <div class="compare-modal-store-info">
+        <img class="compare-store-icon" src="https://www.cheapshark.com/img/stores/icons/${parseInt(deal.storeId) - 1}.png" alt="${deal.store}" onerror="this.style.display='none'">
+        <span class="compare-modal-store">${deal.store}</span>
+        ${hasUniqueCheapest && deal.price === cheapest ? '<span class="cheapest-badge">Best price</span>' : ''}
+      </div>
+      <span>
+        <span class="compare-modal-price ${hasUniqueCheapest && deal.price !== cheapest ? 'not-cheapest' : ''}">$${deal.price.toFixed(2)}</span>
+        ${deal.discount > 0 ? `<span class="compare-modal-discount">-${deal.discount}%</span>` : ''}
+      </span>
+    </div>
+  `).join("");
+
+  compareModalList.innerHTML = html;
+
+  compareModalList.querySelectorAll(".compare-modal-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const url = item.dataset.url;
+      if (url) {
+        chrome.tabs.create({ url });
+      }
     });
   });
 }
@@ -584,7 +764,26 @@ importPageBtn.addEventListener("click", async () => {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_GAMES" });
 
     if (response && response.games && response.games.length > 0) {
-      await chrome.runtime.sendMessage({ type: "IMPORT_WISHLIST", games: response.games });
+      // Enforce limit for free users
+      let gamesToImport = response.games;
+      if (!isPremium) {
+        const existing = await chrome.storage.local.get(["trackedGames"]);
+        const currentCount = (existing.trackedGames || []).length;
+        const remaining = 5 - currentCount;
+
+        if (remaining <= 0) {
+          showLimitWarning();
+          importPageBtn.textContent = "Import Wishlist From This Page";
+          importPageBtn.disabled = false;
+          return;
+        }
+
+        if (gamesToImport.length > remaining) {
+          gamesToImport = gamesToImport.slice(0, remaining);
+        }
+      }
+
+      await chrome.runtime.sendMessage({ type: "IMPORT_WISHLIST", games: gamesToImport });
 
       importPageBtn.textContent = `Imported ${response.games.length} games!`;
 
@@ -612,6 +811,22 @@ importPageBtn.addEventListener("click", async () => {
       importPageBtn.disabled = false;
     }, 2000);
   }
+});
+
+premiumToggle.querySelectorAll(".setting-toggle").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    premiumToggle.querySelectorAll(".setting-toggle").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    isPremium = btn.dataset.value === "on";
+    await chrome.storage.local.set({ premium: isPremium });
+
+    // Re-render to show/hide premium features
+    const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
+    if (data.trackedGames && data.trackedGames.length > 0) {
+      renderGames(data.trackedGames, data.priceTargets || {});
+    }
+  });
 });
 
 regionSelect.addEventListener("change", async (e) => {
@@ -654,6 +869,16 @@ regionSelect.addEventListener("change", async (e) => {
   updateLastChecked();
 
   checkNowBtn.classList.remove("spinning");
+});
+
+compareModalClose.addEventListener("click", () => {
+  compareOverlay.classList.add("hidden");
+});
+
+compareOverlay.addEventListener("click", (e) => {
+  if (e.target === compareOverlay) {
+    compareOverlay.classList.add("hidden");
+  }
 });
 
 // ============================================================

@@ -23,14 +23,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Import wishlist from content script
 async function importWishlist(games) {
-  const data = await chrome.storage.local.get(["trackedGames"]);
+  const data = await chrome.storage.local.get(["trackedGames", "premium"]);
   const existing = data.trackedGames || [];
   const existingIds = new Set(existing.map(g => g.appId));
+  const isPremium = data.premium || false;
+  const limit = isPremium ? Infinity : 5;
 
   let added = 0;
 
   for (const game of games) {
     if (existingIds.has(game.appId)) continue;
+    if (existing.length >= limit) break;
 
     existing.push({
       appId: game.appId,

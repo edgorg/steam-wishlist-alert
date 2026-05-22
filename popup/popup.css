@@ -651,15 +651,6 @@ body::-webkit-scrollbar-thumb {
   font-size: 11px;
 }
 
-.game-card {
-  animation: cardFadeIn 0.15s ease;
-}
-
-@keyframes cardFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .search-input:focus,
 .target-input:focus,
 .setting-select:focus {
@@ -700,4 +691,294 @@ body::-webkit-scrollbar-thumb {
   color: var(--green);
   margin-top: 2px;
   display: block;
+}
+
+.premium-row {
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.premium-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f5a623, #f7c948);
+  color: #1b2838;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 6px;
+  text-transform: uppercase;
+}
+
+.feature-locked {
+  opacity: 0.5;
+  position: relative;
+}
+
+.feature-locked::after {
+  content: "PRO";
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 8px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f5a623, #f7c948);
+  color: #1b2838;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.limit-warning {
+  padding: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.limit-warning-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.limit-warning-upgrade {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f5a623;
+  cursor: pointer;
+}
+
+.limit-warning-upgrade:hover {
+  text-decoration: underline;
+}
+
+/* Compare button - attached to target input */
+.target-input-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.target-input-group .target-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.compare-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  color: var(--accent);
+  font-size: 9px;
+  font-family: inherit;
+  padding: 4px 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  animation: fadeIn 0.2s ease;
+  white-space: nowrap;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.compare-btn:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.compare-btn.loading {
+  color: var(--text-muted);
+}
+
+/* Target input green when target hit */
+.target-input.target-hit {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+/* Compare modal */
+.compare-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+.compare-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  width: 300px;
+  max-height: 350px;
+  display: flex;
+  flex-direction: column;
+}
+
+.compare-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.compare-modal-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.compare-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.compare-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.compare-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.compare-modal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.compare-modal-item:hover {
+  border-color: var(--accent);
+}
+
+.compare-modal-store {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.compare-modal-price {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.compare-modal-discount {
+  font-size: 10px;
+  color: var(--discount-text);
+  background: var(--discount-bg);
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: 6px;
+}
+
+.compare-modal-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.compare-modal-loading {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.compare-icon {
+  width: 12px;
+  height: 12px;
+  fill: var(--accent);
+  transition: fill 0.15s ease;
+}
+
+.compare-btn:hover .compare-icon {
+  fill: var(--bg-primary);
+}
+
+.compare-btn.flash-red {
+  border-color: var(--red);
+  background: var(--red);
+}
+
+.compare-btn.flash-red .compare-icon {
+  fill: white;
+}
+
+.spinner-tiny {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.compare-modal-store-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compare-store-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.compare-modal-item.cheapest {
+  border-color: var(--green);
+  background: rgba(108, 198, 68, 0.05);
+}
+
+.cheapest-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--green);
+  background: rgba(108, 198, 68, 0.15);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.compare-modal-price.not-cheapest {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.compare-modal-note {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+.compare-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
 }
