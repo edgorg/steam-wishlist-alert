@@ -18,6 +18,7 @@
     "https://cdn.akamai.steamstatic.com/*",
     "https://api.isthereanydeal.com/*",
     "https://www.isthereanydeal.com/*",
+    "https://api.lemonsqueezy.com/*",
     "<all_urls>"
   ],
   "action": {

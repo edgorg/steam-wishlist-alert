@@ -484,7 +484,7 @@ body::-webkit-scrollbar-thumb {
   flex-direction: column;
   gap: 10px;
   z-index: 100;
-  min-width: 220px;
+  width: 260px;
 }
 
 .setting-row {
@@ -1070,18 +1070,100 @@ body::-webkit-scrollbar-thumb {
   border-radius: 3px;
 }
 
-#swa-compare-overlay .swa-credit {
-  text-align: center;
-  padding-top: 10px;
-  margin-top: 10px;
-  border-top: 1px solid #2a475e;
+/* Premium */
+.premium-section {
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.premium-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.premium-expand {
+  margin-top: 8px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+}
+
+.premium-expand.visible {
+  max-height: 80px;
+  opacity: 1;
+}
+
+.premium-expand.hidden {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.premium-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.licence-input {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.licence-input:focus {
+  border-color: var(--accent);
+}
+
+.licence-submit {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.licence-error {
   font-size: 10px;
-  color: #56707f;
+  color: var(--text-muted);
+  margin-top: 6px;
 }
-#swa-compare-overlay .swa-credit-link {
-  color: #66c0f4;
-  text-decoration: none;
+
+.premium-upgrade-btn {
+  background: linear-gradient(135deg, #f5a623, #f7c948);
+  color: #1b2838;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 }
-#swa-compare-overlay .swa-credit-link:hover {
-  text-decoration: underline;
+
+.premium-upgrade-btn:hover {
+  opacity: 0.9;
+}
+
+.premium-active-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6cc644;
+  background: rgba(108, 198, 68, 0.15);
+  padding: 3px 8px;
+  border-radius: 4px;
 }

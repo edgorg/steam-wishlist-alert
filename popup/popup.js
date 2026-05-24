@@ -25,9 +25,15 @@ const modalConfirm = document.getElementById("modal-confirm");
 const modalCancel = document.getElementById("modal-cancel");
 const regionSelect = document.getElementById("region-select");
 const searchSpinner = document.getElementById("search-spinner");
-const premiumToggle = document.getElementById("premium-toggle");
 const compareCache = {};
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const upgradeBtn = document.getElementById("upgrade-btn");
+const premiumInactive = document.getElementById("premium-inactive");
+const premiumActive = document.getElementById("premium-active");
+const premiumInput = document.getElementById("premium-input");
+const licenceInput = document.getElementById("licence-input");
+const licenceSubmit = document.getElementById("licence-submit");
+const licenceError = document.getElementById("licence-error");
 
 let searchTimeout = null;
 let currentCurrencySymbol = "\u00A3";
@@ -199,13 +205,7 @@ function applyTheme(theme) {
 }
 
 async function loadSettings() {
-  const data = await chrome.storage.local.get(["theme", "notifications", "region", "premium"]);
-
-  const premium = data.premium || false;
-  isPremium = premium;
-  premiumToggle.querySelectorAll(".setting-toggle").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.value === (premium ? "on" : "off"));
-  });
+  const data = await chrome.storage.local.get(["theme", "notifications", "region"]);
 
   const theme = data.theme || "dark";
   applyTheme(theme);
@@ -220,8 +220,13 @@ async function loadSettings() {
 
   const region = data.region || "gb";
   regionSelect.value = region;
-  if (REGION_CURRENCY[region]) {
-    currentCurrencySymbol = REGION_CURRENCY[region].symbol;
+
+  // Check premium status
+  isPremium = await LicenceService.checkPremiumStatus();
+  if (isPremium) {
+    showPremiumActive();
+  } else {
+    showPremiumInactive();
   }
 }
 
@@ -319,6 +324,76 @@ async function renderSearchResults(results) {
       searchResults.classList.add("hidden");
     });
   });
+}
+
+// Premium - Upgrade button
+upgradeBtn.addEventListener("click", () => {
+  if (!premiumInput.classList.contains("visible")) {
+    premiumInput.classList.remove("hidden");
+    premiumInput.classList.add("visible");
+
+    const errorEl = document.getElementById("licence-error");
+    errorEl.innerHTML = `<a href="#" id="buy-link" style="color:var(--accent);text-decoration:none;">Don't have a key? Buy Premium here</a>`;
+
+    document.getElementById("buy-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: LicenceService.getCheckoutUrl() });
+    });
+  } else {
+    premiumInput.classList.remove("visible");
+  }
+});
+
+// Premium - Activate licence
+licenceSubmit.addEventListener("click", async () => {
+  const key = licenceInput.value.trim();
+
+  if (!key) {
+    licenceError.textContent = "Please enter a licence key";
+    licenceError.classList.remove("hidden");
+    return;
+  }
+
+  licenceSubmit.textContent = "Checking...";
+  licenceSubmit.disabled = true;
+  licenceError.classList.add("hidden");
+
+  const result = await LicenceService.activateKey(key);
+
+  if (result.success) {
+    await LicenceService.saveLicence(key);
+    isPremium = true;
+    showPremiumActive();
+
+    const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
+    if (data.trackedGames && data.trackedGames.length > 0) {
+      renderGames(data.trackedGames, data.priceTargets || {});
+    }
+  } else {
+    licenceError.textContent = result.error || "Invalid licence key";
+    licenceError.classList.remove("hidden");
+  }
+
+  licenceSubmit.textContent = "Activate";
+  licenceSubmit.disabled = false;
+});
+
+licenceInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") licenceSubmit.click();
+});
+
+function showPremiumActive() {
+  premiumInactive.classList.add("hidden");
+  premiumInput.classList.remove("visible");
+  premiumInput.classList.add("hidden");
+  premiumActive.classList.remove("hidden");
+}
+
+function showPremiumInactive() {
+  premiumInactive.classList.remove("hidden");
+  premiumActive.classList.add("hidden");
+  premiumInput.classList.remove("visible");
+  premiumInput.classList.add("hidden");
 }
 
 // ============================================================
@@ -537,12 +612,16 @@ function attachGameListeners(targets) {
   });
 }
 
-function showLimitWarning() {
-  showModal(
+async function showLimitWarning() {
+  const confirmed = await showModal(
     "Free tier is limited to 5 games. Upgrade to Premium for unlimited tracking and price comparison across multiple stores.",
-    "OK",
+    "Upgrade",
     false
   );
+
+  if (confirmed) {
+    chrome.tabs.create({ url: LicenceService.getCheckoutUrl() });
+  }
 }
 
 async function loadComparison(appId, name) {
@@ -751,22 +830,6 @@ importPageBtn.addEventListener("click", async () => {
       importPageBtn.disabled = false;
     }, 2000);
   }
-});
-
-premiumToggle.querySelectorAll(".setting-toggle").forEach(btn => {
-  btn.addEventListener("click", async () => {
-    premiumToggle.querySelectorAll(".setting-toggle").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-
-    isPremium = btn.dataset.value === "on";
-    await chrome.storage.local.set({ premium: isPremium });
-
-    // Re-render to show/hide premium features
-    const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
-    if (data.trackedGames && data.trackedGames.length > 0) {
-      renderGames(data.trackedGames, data.priceTargets || {});
-    }
-  });
 });
 
 regionSelect.addEventListener("change", async (e) => {
