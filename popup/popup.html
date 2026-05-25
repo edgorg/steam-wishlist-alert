@@ -136,11 +136,18 @@
     </div>
 
     <!-- Tracked games section -->
-    <div class="section">
-      <div class="section-header">
-        <h2 class="section-title">Watching</h2>
-        <span id="watching-count" class="badge"></span>
-      </div>
+      <div class="section">
+        <div class="section-header">
+          <h2 class="section-title">Watching</h2>
+          <span id="watching-count" class="badge"></span>
+          <select class="sort-select" id="sort-select">
+            <option value="name">A-Z</option>
+            <option value="price-low">Price: Low</option>
+            <option value="price-high">Price: High</option>
+            <option value="discount">Discount</option>
+            <option value="added">Recently Added</option>
+          </select>
+        </div>
       <div id="games-list" class="game-list"></div>
     </div>
 

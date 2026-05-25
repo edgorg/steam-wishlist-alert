@@ -34,11 +34,13 @@ const premiumInput = document.getElementById("premium-input");
 const licenceInput = document.getElementById("licence-input");
 const licenceSubmit = document.getElementById("licence-submit");
 const licenceError = document.getElementById("licence-error");
+const sortSelect = document.getElementById("sort-select");
 
 let searchTimeout = null;
 let currentCurrencySymbol = "\u00A3";
 let isPremium = false;
 let inputFocused = false;
+let currentSort = "name";
 
 const REGION_CURRENCY = {
   gb: { code: "GBP", symbol: "\u00A3" },
@@ -176,6 +178,14 @@ document.addEventListener("click", (e) => {
   }
 });
 
+sortSelect.addEventListener("change", async (e) => {
+  currentSort = e.target.value;
+  await chrome.storage.local.set({ sortPreference: currentSort });
+
+  const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
+  renderGames(data.trackedGames || [], data.priceTargets || {});
+});
+
 themeToggle.querySelectorAll(".setting-toggle").forEach(btn => {
   btn.addEventListener("click", async () => {
     themeToggle.querySelectorAll(".setting-toggle").forEach(b => b.classList.remove("active"));
@@ -205,7 +215,7 @@ function applyTheme(theme) {
 }
 
 async function loadSettings() {
-  const data = await chrome.storage.local.get(["theme", "notifications", "region"]);
+  const data = await chrome.storage.local.get(["theme", "notifications", "region", "sortPreference"]);
 
   const theme = data.theme || "dark";
   applyTheme(theme);
@@ -228,6 +238,10 @@ async function loadSettings() {
   } else {
     showPremiumInactive();
   }
+
+  const sortPref = data.sortPreference || "name";
+  currentSort = sortPref;
+  sortSelect.value = sortPref;
 }
 
 // ============================================================
@@ -415,7 +429,7 @@ async function addGame(appId, name) {
 
   if (!details) {
     // Still add it but with basic info - prices will update on next check
-    const game = {
+    const game = details || {
       appId: appId,
       name: name,
       capsuleUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
@@ -427,6 +441,9 @@ async function addGame(appId, name) {
       discountPercent: 0,
       currency: "GBP"
     };
+
+  game.dateAdded = Date.now();
+  games.push(game);
     games.push(game);
   } else {
     games.push(details);
@@ -467,6 +484,8 @@ async function removeGame(appId) {
 // Render Games
 // ============================================================
 function renderGames(games, targets) {
+  detectCurrency(games);
+
   const deals = [];
   const watching = [];
 
@@ -492,7 +511,24 @@ function renderGames(games, targets) {
     dealsCount.textContent = "";
   }
 
-  watching.sort((a, b) => a.name.localeCompare(b.name));
+  // Sort watching list
+  switch (currentSort) {
+    case "name":
+      watching.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case "price-low":
+      watching.sort((a, b) => (a.currentPrice || 999) - (b.currentPrice || 999));
+      break;
+    case "price-high":
+      watching.sort((a, b) => (b.currentPrice || 0) - (a.currentPrice || 0));
+      break;
+    case "discount":
+      watching.sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0));
+      break;
+    case "added":
+      watching.sort((a, b) => (b.dateAdded || 0) - (a.dateAdded || 0));
+      break;
+  }
 
   const totalGames = deals.length + watching.length;
   if (isPremium) {
