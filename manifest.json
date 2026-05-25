@@ -37,6 +37,11 @@
       "matches": ["https://store.steampowered.com/wishlist/*"],
       "js": ["content/wishlist-importer.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://store.steampowered.com/app/*"],
+      "js": ["content/steam-quick-add.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

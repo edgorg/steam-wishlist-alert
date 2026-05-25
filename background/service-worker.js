@@ -13,6 +13,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 // Handle messages from content script (wishlist import)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "QUICK_ADD_GAME") {
+    handleQuickAdd(message.appId, message.name).then(result => {
+      sendResponse(result);
+    });
+    return true;
+  }
+
   if (message.type === "IMPORT_WISHLIST") {
     importWishlist(message.games).then(() => {
       sendResponse({ success: true });
@@ -56,6 +63,68 @@ async function importWishlist(games) {
 
   // Fetch prices for new games in background
   await checkPrices();
+}
+
+async function handleQuickAdd(appId, name) {
+  const data = await chrome.storage.local.get(["trackedGames", "premium"]);
+  const games = data.trackedGames || [];
+  const isPremium = data.premium || false;
+
+  // Check if already tracked
+  if (games.find(g => g.appId === appId)) {
+    return { success: true, alreadyTracked: true };
+  }
+
+  // Check free tier limit
+  if (!isPremium && games.length >= 5) {
+    return { success: false, error: "Limit reached (5 games)" };
+  }
+
+  // Fetch game details
+  try {
+    const response = await fetch(
+      `https://store.steampowered.com/api/appdetails?appids=${appId}`
+    );
+
+    let game = {
+      appId: appId,
+      name: name,
+      capsuleUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
+      storeUrl: `https://store.steampowered.com/app/${appId}`,
+      isFree: false,
+      released: true,
+      currentPrice: null,
+      originalPrice: null,
+      discountPercent: 0,
+      currency: "GBP",
+      dateAdded: Date.now()
+    };
+
+    if (response.ok) {
+      const result = await response.json();
+      const appData = result[appId.toString()];
+
+      if (appData?.success && appData.data) {
+        const details = appData.data;
+        const priceOverview = details.price_overview;
+
+        game.name = details.name || name;
+        game.isFree = details.is_free || false;
+        game.released = !details.release_date?.coming_soon;
+        game.currentPrice = priceOverview ? priceOverview.final / 100 : 0;
+        game.originalPrice = priceOverview ? priceOverview.initial / 100 : 0;
+        game.discountPercent = priceOverview ? priceOverview.discount_percent : 0;
+        game.currency = priceOverview?.currency || "GBP";
+      }
+    }
+
+    games.push(game);
+    await chrome.storage.local.set({ trackedGames: games });
+
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: "Failed to add" };
+  }
 }
 
 // Check prices for all tracked games
