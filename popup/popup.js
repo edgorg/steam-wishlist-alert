@@ -35,6 +35,8 @@ const licenceInput = document.getElementById("licence-input");
 const licenceSubmit = document.getElementById("licence-submit");
 const licenceError = document.getElementById("licence-error");
 const sortSelect = document.getElementById("sort-select");
+const saleBanner = document.getElementById("sale-banner");
+const saleText = document.getElementById("sale-text");
 
 let searchTimeout = null;
 let currentCurrencySymbol = "\u00A3";
@@ -112,6 +114,7 @@ async function init() {
 
   updateLastChecked();
   checkForWishlistPage();
+  checkSaleCountdown();
 }
 
 // ============================================================
@@ -340,6 +343,74 @@ async function renderSearchResults(results) {
   });
 }
 
+// ============================================================
+// Steam Sale Countdown
+// ============================================================
+function checkSaleCountdown() {
+  const now = new Date();
+  const year = now.getFullYear();
+
+  // Estimated dates based on historical patterns
+  // Update these annually when Valve announces dates 
+  // https://partner.steamgames.com/doc/marketing/upcoming_events
+  const sales = [
+    { name: "Spring Sale", start: new Date(year, 2, 13), end: new Date(year, 2, 20) },
+    { name: "Summer Sale", start: new Date(year, 5, 26), end: new Date(year, 6, 10) },
+    { name: "Autumn Sale", start: new Date(year, 10, 21), end: new Date(year, 10, 28) },
+    { name: "Winter Sale", start: new Date(year, 11, 19), end: new Date(year + 1, 0, 2) },
+  ];
+
+  const nextYearSales = [
+    { name: "Spring Sale", start: new Date(year + 1, 2, 13), end: new Date(year + 1, 2, 20) },
+  ];
+
+  const allSales = [...sales, ...nextYearSales];
+
+  // Check if a sale is live right now
+  for (const sale of allSales) {
+    if (now >= sale.start && now <= sale.end) {
+      saleBanner.classList.remove("hidden");
+      saleBanner.classList.add("sale-live");
+      saleText.innerHTML = `<strong>Steam ${sale.name}</strong> is live! Ends ${formatSaleDate(sale.end)}`;
+      return;
+    }
+  }
+
+  // Find next upcoming sale
+  let nextSale = null;
+  for (const sale of allSales) {
+    if (sale.start > now) {
+      nextSale = sale;
+      break;
+    }
+  }
+
+  if (nextSale) {
+    const daysUntil = Math.ceil((nextSale.start - now) / (1000 * 60 * 60 * 24));
+
+    if (daysUntil <= 30) {
+      saleBanner.classList.remove("hidden");
+      saleBanner.classList.remove("sale-live");
+
+      if (daysUntil <= 1) {
+        saleText.innerHTML = `<strong>Steam ${nextSale.name}</strong> expected tomorrow`;
+      } else if (daysUntil <= 7) {
+        saleText.innerHTML = `<strong>Steam ${nextSale.name}</strong> expected in ${daysUntil} days`;
+      } else {
+        saleText.innerHTML = `<strong>Steam ${nextSale.name}</strong> expected ~${formatSaleDate(nextSale.start)}`;
+      }
+    } else {
+      saleBanner.classList.add("hidden");
+    }
+  } else {
+    saleBanner.classList.add("hidden");
+  }
+}
+
+function formatSaleDate(date) {
+  return date.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+}
+
 // Premium - Upgrade button
 upgradeBtn.addEventListener("click", () => {
   if (!premiumInput.classList.contains("visible")) {
@@ -557,6 +628,10 @@ function renderGameCard(game, target, isDeal) {
       priceHtml += `<br><span class="game-original-price">${currentCurrencySymbol}${game.originalPrice.toFixed(2)}</span>`;
       priceHtml += ` <span class="game-discount">-${game.discountPercent}%</span>`;
     }
+
+    if (isPremium && game.dealScore !== undefined && game.dealScore !== null) {
+      priceHtml += `<br><span title="${game.dealScore === 100 ? 'This is the lowest price ever!' : `${game.dealScore}% as good as the lowest price ever`}" class="deal-score ${getDealScoreClass(game.dealScore)}">${game.dealScore}% deal</span>`;
+    }
   } else {
     priceHtml = `<span class="game-not-released">Price unavailable</span>`;
   }
@@ -584,6 +659,13 @@ function renderGameCard(game, target, isDeal) {
       <button class="game-remove" data-appid="${game.appId}" title="Remove">x</button>
     </div>
   `;
+}
+
+function getDealScoreClass(score) {
+  if (score >= 90) return "deal-amazing";
+  if (score >= 70) return "deal-great";
+  if (score >= 50) return "deal-good";
+  return "deal-ok";
 }
 
 function attachGameListeners(targets) {

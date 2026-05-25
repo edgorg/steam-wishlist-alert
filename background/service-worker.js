@@ -1,3 +1,5 @@
+importScripts("../services/config.js");
+
 // Set up price check alarm
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create("priceCheck", { periodInMinutes: 120 }); // Every 2 hours
@@ -8,6 +10,7 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === "priceCheck") {
     await checkPrices();
+    await updateHistoryLows();
   }
 });
 
@@ -167,6 +170,15 @@ async function checkPrices() {
       game.discountPercent = priceOverview ? priceOverview.discount_percent : 0;
       game.currency = priceOverview?.currency || "GBP";
 
+      // Calculate deal score if we have history low data
+      if (game.historyLow && game.originalPrice > 0 && game.currentPrice > 0) {
+        const range = game.originalPrice - game.historyLow;
+        if (range > 0) {
+          game.dealScore = Math.round((1 - (game.currentPrice - game.historyLow) / range) * 100);
+          game.dealScore = Math.max(0, Math.min(100, game.dealScore));
+        }
+      }
+
       const target = targets[game.appId];
 
       if (notificationsEnabled && previousPrice !== null && game.currentPrice < previousPrice) {
@@ -218,6 +230,78 @@ function getCurrencySymbol(cc) {
     in: "\u20B9"
   };
   return symbols[cc] || "\u00A3";
+}
+
+async function updateHistoryLows() {
+  const data = await chrome.storage.local.get(["trackedGames", "premium"]);
+  if (!data.premium) return;
+  
+  const games = data.trackedGames || [];
+
+  if (games.length === 0) return;
+
+  for (const game of games) {
+    // Skip if we already have a recent history low
+    if (game.historyLowUpdated && Date.now() - game.historyLowUpdated < 7 * 24 * 60 * 60 * 1000) continue;
+
+    try {
+      // Look up game on ITAD
+      const lookupResponse = await fetch(
+        `https://api.isthereanydeal.com/games/lookup/v1?key=${CONFIG.ITAD_KEY}&appid=${game.appId}`
+      );
+
+      if (!lookupResponse.ok) continue;
+
+      const lookupData = await lookupResponse.json();
+      if (!lookupData.found) continue;
+
+      const gameId = lookupData.game.id;
+
+      // Get prices (includes history low)
+      const pricesResponse = await fetch(
+        `https://api.isthereanydeal.com/games/prices/v2?key=${CONFIG.ITAD_KEY}&country=GB`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify([gameId])
+        }
+      );
+
+      if (!pricesResponse.ok) continue;
+
+      const pricesData = await pricesResponse.json();
+
+      if (pricesData && pricesData.length > 0 && pricesData[0].deals) {
+        // Find the lowest historyLow across all stores
+        let lowestEver = null;
+        for (const deal of pricesData[0].deals) {
+          if (deal.historyLow && (lowestEver === null || deal.historyLow.amount < lowestEver)) {
+            lowestEver = deal.historyLow.amount;
+          }
+        }
+
+        if (lowestEver !== null) {
+          game.historyLow = lowestEver;
+          game.historyLowUpdated = Date.now();
+
+          // Calculate deal score
+          if (game.originalPrice > 0 && game.currentPrice > 0) {
+            const range = game.originalPrice - lowestEver;
+            if (range > 0) {
+              game.dealScore = Math.round((1 - (game.currentPrice - lowestEver) / range) * 100);
+              game.dealScore = Math.max(0, Math.min(100, game.dealScore));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`History low fetch failed for ${game.name}:`, e.message);
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  await chrome.storage.local.set({ trackedGames: games });
 }
 
 // Clear badge when popup opens
