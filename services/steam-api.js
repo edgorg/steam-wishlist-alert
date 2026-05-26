@@ -28,12 +28,12 @@ const SteamAPI = {
     }
   },
 
-  async getAppDetails(appId) {
+  async getAppDetails(appId, cc = null) {
     try {
-      const cc = await this.getRegion();
-      const response = await fetch(
-        `${this.STORE_URL}/api/appdetails?appids=${appId}&cc=${cc}`
-      );
+      let url = `${this.STORE_URL}/api/appdetails?appids=${appId}`;
+      if (cc) url += `&cc=${cc}`;
+
+      const response = await fetch(url);
 
       if (!response.ok) return null;
 

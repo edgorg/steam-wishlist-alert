@@ -513,8 +513,36 @@ async function addGame(appId, name) {
       currency: "GBP"
     };
 
-  game.dateAdded = Date.now();
-  games.push(game);
+    game.dateAdded = Date.now();
+    
+    // Try to get deal score from ITAD
+    if (isPremium) {
+      try {
+        const gameId = await ITAD_API.getGameByAppId(game.appId);
+        if (gameId) {
+          const deals = await ITAD_API.getPrices(gameId);
+          if (deals && deals.length > 0) {
+            let lowestEver = null;
+            for (const deal of deals) {
+              if (deal.historyLow !== null && (lowestEver === null || deal.historyLow < lowestEver)) {
+                lowestEver = deal.historyLow;
+              }
+            }
+            if (lowestEver !== null && game.originalPrice > 0 && game.currentPrice > 0) {
+              game.historyLow = lowestEver;
+              const range = game.originalPrice - lowestEver;
+              if (range > 0) {
+                game.dealScore = Math.round((1 - (game.currentPrice - lowestEver) / range) * 100);
+                game.dealScore = Math.max(0, Math.min(100, game.dealScore));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Silently fail - deal score will appear later
+      }
+    }
+
     games.push(game);
   } else {
     games.push(details);
@@ -829,8 +857,11 @@ checkNowBtn.addEventListener("click", async () => {
     return;
   }
 
+  const regionData = await chrome.storage.local.get(["region"]);
+  const cc = regionData.region || "gb";
+
   for (let i = 0; i < games.length; i++) {
-    const details = await SteamAPI.getAppDetails(games[i].appId);
+    const details = await SteamAPI.getAppDetails(games[i].appId, cc);
     if (details) {
       games[i].currentPrice = details.currentPrice;
       games[i].originalPrice = details.originalPrice;
@@ -973,8 +1004,11 @@ regionSelect.addEventListener("change", async (e) => {
 
   checkNowBtn.classList.add("spinning");
 
+  const regionData = await chrome.storage.local.get(["region"]);
+  const cc = regionData.region || "gb";
+
   for (let i = 0; i < games.length; i++) {
-    const details = await SteamAPI.getAppDetails(games[i].appId);
+    const details = await SteamAPI.getAppDetails(games[i].appId, cc);
     if (details) {
       games[i].currentPrice = details.currentPrice;
       games[i].originalPrice = details.originalPrice;

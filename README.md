@@ -178,5 +178,5 @@ steam-wishlist-alerts/
 - Price checks occur every 2 hours (Chrome limits alarm frequency)
 - Some games may not have pricing info (unreleased, delisted, free-to-play)
 - Deal score requires Premium (uses IsThereAnyDeal data)
-- Compare modal cannot be shown on chrome:// pages (falls back to ITAD link)
+- Compare modal cannot be shown on chrome:// pages
 - Sale countdown dates are estimates based on historical patterns
