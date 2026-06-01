@@ -418,7 +418,7 @@ upgradeBtn.addEventListener("click", () => {
     premiumInput.classList.add("visible");
 
     const errorEl = document.getElementById("licence-error");
-    errorEl.innerHTML = `<a href="#" id="buy-link" style="color:var(--accent);text-decoration:none;">Don't have a key? Buy Premium here</a>`;
+    errorEl.innerHTML = `<a href="#" id="buy-link" class="buy-premium-link">Don't have a key? Buy Premium here</a>`;
 
     document.getElementById("buy-link").addEventListener("click", (e) => {
       e.preventDefault();
@@ -434,14 +434,12 @@ licenceSubmit.addEventListener("click", async () => {
   const key = licenceInput.value.trim();
 
   if (!key) {
-    licenceError.textContent = "Please enter a licence key";
-    licenceError.classList.remove("hidden");
+    showLicenceError("Please enter a licence key");
     return;
   }
 
   licenceSubmit.textContent = "Checking...";
   licenceSubmit.disabled = true;
-  licenceError.classList.add("hidden");
 
   const result = await LicenceService.activateKey(key);
 
@@ -455,13 +453,28 @@ licenceSubmit.addEventListener("click", async () => {
       renderGames(data.trackedGames, data.priceTargets || {});
     }
   } else {
-    licenceError.textContent = result.error || "Invalid licence key";
-    licenceError.classList.remove("hidden");
+    showLicenceError(result.error || "Invalid licence key");
   }
 
   licenceSubmit.textContent = "Activate";
   licenceSubmit.disabled = false;
 });
+
+function showLicenceError(message) {
+  const errorEl = document.getElementById("licence-error");
+  errorEl.textContent = message;
+  errorEl.classList.add("error-visible");
+
+  setTimeout(() => {
+    errorEl.classList.remove("error-visible");
+    // Restore the buy link
+    errorEl.innerHTML = `<a href="#" id="buy-link" class="buy-premium-link">Don't have a key? Buy Premium here</a>`;
+    document.getElementById("buy-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: LicenceService.getCheckoutUrl() });
+    });
+  }, 3000);
+}
 
 licenceInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") licenceSubmit.click();

@@ -1110,8 +1110,8 @@ body::-webkit-scrollbar-thumb {
 
 .licence-input {
   flex: 1;
-  padding: 6px 8px;
-  font-size: 11px;
+  padding: 5px 8px;
+  font-size: 10px;
   font-family: inherit;
   background: var(--bg-primary);
   border: 1px solid var(--border);
@@ -1125,21 +1125,48 @@ body::-webkit-scrollbar-thumb {
 }
 
 .licence-submit {
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 500;
   font-family: inherit;
-  background: var(--accent);
-  color: var(--bg-primary);
-  border: none;
+  background: none;
+  color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 4px;
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.licence-submit:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
 }
 
 .licence-error {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 8px;
+  width: 100%;
+  font-size: 11px;
+  transition: opacity 0.3s ease;
+}
+
+.licence-error.error-visible {
+  color: var(--red);
+  font-weight: 500;
+}
+
+.buy-premium-link {
+  display: inline-block;
+  color: #f5a623;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 0;
+  transition: opacity 0.15s ease;
+}
+
+.buy-premium-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
 }
 
 .premium-upgrade-btn {
