@@ -84,9 +84,11 @@ jobs:
           zip -r extension.zip \
             manifest.json \
             background/ \
+            compare/ \
             content/ \
             icons/ \
             popup/ \
+            services/ \
             -x "background/.github/*"
 
           echo "Package size: $(du -h extension.zip | cut -f1)"
