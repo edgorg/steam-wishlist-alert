@@ -3,9 +3,7 @@
 A Chrome extension that tracks Steam game prices and notifies you when they drop or hit your target price. Compare prices across multiple stores with one click.
 
 ## Features
-
-### Free
-- Track up to 5 games
+- Track unlimited games
 - Import from your Steam Wishlist page
 - Quick-add button on Steam store pages
 - Set target prices for each game
@@ -15,12 +13,9 @@ A Chrome extension that tracks Steam game prices and notifies you when they drop
 - Steam sale countdown
 - Dark/light theme
 - Region selection for accurate local pricing
-
-### Premium
-- Unlimited game tracking
 - Price comparison across 30+ stores (via IsThereAnyDeal)
 - Deal score (shows how close to all-time low)
-- Support the developer
+- Key reseller comparison links
 
 ## Screenshots
 
@@ -69,7 +64,7 @@ git clone https://github.com/edgoran/steam-wishlist-alerts.git
 2. Enter a target price in the input next to any game
 3. You'll be notified when the price drops to or below your target
 
-### Price Comparison (Premium)
+### Price Comparison
 
 1. Click the tag icon next to any game
 2. A modal shows prices across 30+ stores
@@ -82,7 +77,6 @@ Click the gear icon to access:
 - **Notifications** - On or Off
 - **Region** - Select your Steam store region
 - **Sort** - Order your watched games
-- **Premium** - Activate your licence key
 
 ## How It Works
 
@@ -91,7 +85,7 @@ Extension Popup
     |
     +-- Search: Steam Store Search API
     +-- Prices: Steam App Details API
-    +-- Comparison: IsThereAnyDeal API (Premium)
+    +-- Comparison: IsThereAnyDeal API
     +-- Storage: chrome.storage.local + sync
     |
 Content Scripts
@@ -104,7 +98,7 @@ Background Service Worker
     |
     +-- Checks prices every 2 hours
     +-- Sends browser notifications on drops
-    +-- Updates deal scores (Premium)
+    +-- Updates deal scores
     +-- Badge count for active deals
 ```
 
@@ -122,8 +116,7 @@ steam-wishlist-alerts/
 |-- services/
 |   |-- config.js (gitignored)
 |   |-- steam-api.js
-|   |-- itad-api.js
-|   +-- licence-service.js
+|   +-- itad-api.js
 |-- popup/
 |   |-- popup.html
 |   |-- popup.css
@@ -140,7 +133,7 @@ steam-wishlist-alerts/
 
 | Permission | Reason |
 |------------|--------|
-| storage | Save tracked games, targets, settings, and licence key |
+| storage | Save tracked games, targets, and settings |
 | alarms | Schedule background price checks |
 | notifications | Alert user of price drops |
 | activeTab | Detect when user is on wishlist page |
@@ -152,11 +145,9 @@ steam-wishlist-alerts/
 
 - No personal data is collected or transmitted to external servers
 - Game tracking data is stored locally in your browser
-- Licence keys are stored in Chrome sync storage (encrypted by Chrome)
 - The extension communicates only with:
   - Steam (game prices and search)
-  - IsThereAnyDeal (price comparison, premium only)
-  - LemonSqueezy (licence validation, premium only)
+  - IsThereAnyDeal (price comparison)
 - No analytics, tracking, or advertising
 
 ## Technical Details
@@ -169,7 +160,6 @@ steam-wishlist-alerts/
 | Price comparison | IsThereAnyDeal API (POST v2) |
 | Background checks | Chrome Alarms API |
 | Notifications | Chrome Notifications API |
-| Licence management | LemonSqueezy API + chrome.storage.sync |
 | Theme | CSS custom properties with data-theme attribute |
 
 ## Known Limitations
@@ -177,6 +167,5 @@ steam-wishlist-alerts/
 - Wishlist import requires visiting the Steam wishlist page
 - Price checks occur every 2 hours (Chrome limits alarm frequency)
 - Some games may not have pricing info (unreleased, delisted, free-to-play)
-- Deal score requires Premium (uses IsThereAnyDeal data)
 - Compare modal cannot be shown on chrome:// pages
 - Sale countdown dates are estimates based on historical patterns

@@ -28,26 +28,7 @@
     </header>
 
     <!-- Settings Panel -->
-    <div id="settings-panel" class="settings-panel hidden">
-            <div class="premium-section" id="premium-section">
-        <div class="setting-row">
-          <div id="premium-inactive" class="premium-status">
-            <span class="setting-label">Premium</span>
-            <button class="premium-upgrade-btn" id="upgrade-btn">Upgrade</button>
-          </div>
-          <div id="premium-active" class="premium-status hidden">
-            <span class="setting-label">Premium</span>
-            <span class="premium-active-badge">Active</span>
-          </div>
-        </div>
-        <div id="premium-input" class="premium-expand hidden">
-          <div class="premium-input-row">
-            <input type="text" class="licence-input" id="licence-input" placeholder="Enter licence key">
-            <button class="licence-submit" id="licence-submit">Activate</button>
-          </div>
-          <div id="licence-error" class="licence-error"></div>
-        </div>
-      </div>
+    <div id="settings-panel" class="settings-panel hidden">        
       <div class="setting-row">
         <span class="setting-label">Theme</span>
         <div class="setting-toggle-group" id="theme-toggle">
@@ -185,7 +166,6 @@
   <script src="../services/config.js"></script>
   <script src="../services/steam-api.js"></script>
   <script src="../services/itad-api.js"></script>
-  <script src="../services/licence-service.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

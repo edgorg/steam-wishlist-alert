@@ -28,19 +28,12 @@ const searchSpinner = document.getElementById("search-spinner");
 const compareCache = {};
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 const upgradeBtn = document.getElementById("upgrade-btn");
-const premiumInactive = document.getElementById("premium-inactive");
-const premiumActive = document.getElementById("premium-active");
-const premiumInput = document.getElementById("premium-input");
-const licenceInput = document.getElementById("licence-input");
-const licenceSubmit = document.getElementById("licence-submit");
-const licenceError = document.getElementById("licence-error");
 const sortSelect = document.getElementById("sort-select");
 const saleBanner = document.getElementById("sale-banner");
 const saleText = document.getElementById("sale-text");
 
 let searchTimeout = null;
 let currentCurrencySymbol = "\u00A3";
-let isPremium = false;
 let inputFocused = false;
 let currentSort = "name";
 
@@ -234,14 +227,6 @@ async function loadSettings() {
   const region = data.region || "gb";
   regionSelect.value = region;
 
-  // Check premium status
-  isPremium = await LicenceService.checkPremiumStatus();
-  if (isPremium) {
-    showPremiumActive();
-  } else {
-    showPremiumInactive();
-  }
-
   const sortPref = data.sortPreference || "name";
   currentSort = sortPref;
   sortSelect.value = sortPref;
@@ -411,89 +396,6 @@ function formatSaleDate(date) {
   return date.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 }
 
-// Premium - Upgrade button
-upgradeBtn.addEventListener("click", () => {
-  if (!premiumInput.classList.contains("visible")) {
-    premiumInput.classList.remove("hidden");
-    premiumInput.classList.add("visible");
-
-    const errorEl = document.getElementById("licence-error");
-    errorEl.innerHTML = `<a href="#" id="buy-link" class="buy-premium-link">Don't have a key? Buy Premium here</a>`;
-
-    document.getElementById("buy-link").addEventListener("click", (e) => {
-      e.preventDefault();
-      chrome.tabs.create({ url: LicenceService.getCheckoutUrl() });
-    });
-  } else {
-    premiumInput.classList.remove("visible");
-  }
-});
-
-// Premium - Activate licence
-licenceSubmit.addEventListener("click", async () => {
-  const key = licenceInput.value.trim();
-
-  if (!key) {
-    showLicenceError("Please enter a licence key");
-    return;
-  }
-
-  licenceSubmit.textContent = "Checking...";
-  licenceSubmit.disabled = true;
-
-  const result = await LicenceService.activateKey(key);
-
-  if (result.success) {
-    await LicenceService.saveLicence(key);
-    isPremium = true;
-    showPremiumActive();
-
-    const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
-    if (data.trackedGames && data.trackedGames.length > 0) {
-      renderGames(data.trackedGames, data.priceTargets || {});
-    }
-  } else {
-    showLicenceError(result.error || "Invalid licence key");
-  }
-
-  licenceSubmit.textContent = "Activate";
-  licenceSubmit.disabled = false;
-});
-
-function showLicenceError(message) {
-  const errorEl = document.getElementById("licence-error");
-  errorEl.textContent = message;
-  errorEl.classList.add("error-visible");
-
-  setTimeout(() => {
-    errorEl.classList.remove("error-visible");
-    // Restore the buy link
-    errorEl.innerHTML = `<a href="#" id="buy-link" class="buy-premium-link">Don't have a key? Buy Premium here</a>`;
-    document.getElementById("buy-link").addEventListener("click", (e) => {
-      e.preventDefault();
-      chrome.tabs.create({ url: LicenceService.getCheckoutUrl() });
-    });
-  }, 3000);
-}
-
-licenceInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") licenceSubmit.click();
-});
-
-function showPremiumActive() {
-  premiumInactive.classList.add("hidden");
-  premiumInput.classList.remove("visible");
-  premiumInput.classList.add("hidden");
-  premiumActive.classList.remove("hidden");
-}
-
-function showPremiumInactive() {
-  premiumInactive.classList.remove("hidden");
-  premiumActive.classList.add("hidden");
-  premiumInput.classList.remove("visible");
-  premiumInput.classList.add("hidden");
-}
-
 // ============================================================
 // Add Game
 // ============================================================
@@ -502,12 +404,6 @@ async function addGame(appId, name) {
   const games = data.trackedGames || [];
 
   if (games.find(g => g.appId === appId)) return;
-
-  // Free tier limit
-  if (!isPremium && games.length >= 5) {
-    showLimitWarning();
-    return;
-  }
 
   const details = await SteamAPI.getAppDetails(appId);
 
@@ -528,33 +424,31 @@ async function addGame(appId, name) {
 
     game.dateAdded = Date.now();
     
-    // Try to get deal score from ITAD
-    if (isPremium) {
-      try {
-        const gameId = await ITAD_API.getGameByAppId(game.appId);
-        if (gameId) {
-          const deals = await ITAD_API.getPrices(gameId);
-          if (deals && deals.length > 0) {
-            let lowestEver = null;
-            for (const deal of deals) {
-              if (deal.historyLow !== null && (lowestEver === null || deal.historyLow < lowestEver)) {
-                lowestEver = deal.historyLow;
-              }
+    // Try to get deal score from ITAD    
+    try {
+      const gameId = await ITAD_API.getGameByAppId(game.appId);
+      if (gameId) {
+        const deals = await ITAD_API.getPrices(gameId);
+        if (deals && deals.length > 0) {
+          let lowestEver = null;
+          for (const deal of deals) {
+            if (deal.historyLow !== null && (lowestEver === null || deal.historyLow < lowestEver)) {
+              lowestEver = deal.historyLow;
             }
-            if (lowestEver !== null && game.originalPrice > 0 && game.currentPrice > 0) {
-              game.historyLow = lowestEver;
-              const range = game.originalPrice - lowestEver;
-              if (range > 0) {
-                game.dealScore = Math.round((1 - (game.currentPrice - lowestEver) / range) * 100);
-                game.dealScore = Math.max(0, Math.min(100, game.dealScore));
-              }
+          }
+          if (lowestEver !== null && game.originalPrice > 0 && game.currentPrice > 0) {
+            game.historyLow = lowestEver;
+            const range = game.originalPrice - lowestEver;
+            if (range > 0) {
+              game.dealScore = Math.round((1 - (game.currentPrice - lowestEver) / range) * 100);
+              game.dealScore = Math.max(0, Math.min(100, game.dealScore));
             }
           }
         }
-      } catch (e) {
-        // Silently fail - deal score will appear later
       }
-    }
+    } catch (e) {
+      // Silently fail - deal score will appear later
+    }    
 
     games.push(game);
   } else {
@@ -643,11 +537,8 @@ function renderGames(games, targets) {
   }
 
   const totalGames = deals.length + watching.length;
-  if (isPremium) {
-    watchingCount.textContent = watching.length;
-  } else {
-    watchingCount.textContent = `${watching.length} (${totalGames}/5)`;
-  }
+
+  watchingCount.textContent = watching.length;
 
   gamesList.innerHTML = watching.map(game => renderGameCard(game, targets[game.appId], false)).join("");
 
@@ -670,7 +561,7 @@ function renderGameCard(game, target, isDeal) {
       priceHtml += ` <span class="game-discount">-${game.discountPercent}%</span>`;
     }
 
-    if (isPremium && game.dealScore !== undefined && game.dealScore !== null) {
+    if (game.dealScore !== undefined && game.dealScore !== null) {
       priceHtml += `<br><span title="${game.dealScore === 100 ? 'This is the lowest price ever!' : `${game.dealScore}% as good as the lowest price ever`}" class="deal-score ${getDealScoreClass(game.dealScore)}">${game.dealScore}% deal</span>`;
     }
   } else {
@@ -688,7 +579,7 @@ function renderGameCard(game, target, isDeal) {
               data-appid="${game.appId}"
               placeholder="${currentCurrencySymbol} target"
               value="${target ? target.toFixed(2) : ''}">
-              ${isPremium ? `<button class="compare-btn" data-appid="${game.appId}" data-name="${game.name}" title="Compare prices"><svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></button>` : ''}
+              <button class="compare-btn" data-appid="${game.appId}" data-name="${game.name}" title="Compare prices"><svg viewBox="0 0 24 24" class="compare-icon"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01L4 11V4h7v-.01l9 9-7 7.02zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></button>
           </div>
         </div>
         ${game.lastDrop ? `<span class="last-drop">Dropped ${formatTimeAgo(game.lastDrop)}</span>` : ''}
@@ -734,7 +625,7 @@ function attachGameListeners(targets) {
     });
   });
 
-  // Compare buttons (premium)
+  // Compare buttons
   document.querySelectorAll(".compare-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -769,18 +660,6 @@ function attachGameListeners(targets) {
       renderGames(data.trackedGames || [], updatedTargets);
     });
   });
-}
-
-async function showLimitWarning() {
-  const confirmed = await showModal(
-    "Free tier is limited to 5 games. Upgrade to Premium for unlimited tracking and price comparison across multiple stores.",
-    "Upgrade",
-    false
-  );
-
-  if (confirmed) {
-    chrome.tabs.create({ url: LicenceService.getCheckoutUrl() });
-  }
 }
 
 async function loadComparison(appId, name) {
@@ -947,22 +826,6 @@ importPageBtn.addEventListener("click", async () => {
     if (response && response.games && response.games.length > 0) {
       // Enforce limit for free users
       let gamesToImport = response.games;
-      if (!isPremium) {
-        const existing = await chrome.storage.local.get(["trackedGames"]);
-        const currentCount = (existing.trackedGames || []).length;
-        const remaining = 5 - currentCount;
-
-        if (remaining <= 0) {
-          showLimitWarning();
-          importPageBtn.textContent = "Import Wishlist From This Page";
-          importPageBtn.disabled = false;
-          return;
-        }
-
-        if (gamesToImport.length > remaining) {
-          gamesToImport = gamesToImport.slice(0, remaining);
-        }
-      }
 
       await chrome.runtime.sendMessage({ type: "IMPORT_WISHLIST", games: gamesToImport });
 

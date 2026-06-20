@@ -33,11 +33,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Import wishlist from content script
 async function importWishlist(games) {
-  const data = await chrome.storage.local.get(["trackedGames", "premium"]);
+  const data = await chrome.storage.local.get(["trackedGames"]);
   const existing = data.trackedGames || [];
   const existingIds = new Set(existing.map(g => g.appId));
-  const isPremium = data.premium || false;
-  const limit = isPremium ? Infinity : 5;
+  const limit =  Infinity;
 
   let added = 0;
 
@@ -69,18 +68,12 @@ async function importWishlist(games) {
 }
 
 async function handleQuickAdd(appId, name) {
-  const data = await chrome.storage.local.get(["trackedGames", "premium"]);
+  const data = await chrome.storage.local.get(["trackedGames"]);
   const games = data.trackedGames || [];
-  const isPremium = data.premium || false;
 
   // Check if already tracked
   if (games.find(g => g.appId === appId)) {
     return { success: true, alreadyTracked: true };
-  }
-
-  // Check free tier limit
-  if (!isPremium && games.length >= 5) {
-    return { success: false, error: "Limit reached (5 games)" };
   }
 
   // Fetch game details
@@ -233,8 +226,7 @@ function getCurrencySymbol(cc) {
 }
 
 async function updateHistoryLows() {
-  const data = await chrome.storage.local.get(["trackedGames", "premium"]);
-  if (!data.premium) return;
+  const data = await chrome.storage.local.get(["trackedGames"]);
   
   const games = data.trackedGames || [];
 
