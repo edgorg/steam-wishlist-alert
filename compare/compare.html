@@ -112,7 +112,6 @@
       <button class="compare-page-close" id="close-btn">x</button>
     </div>
     <div class="compare-page-list" id="compare-list"></div>
-    <div class="key-resellers-section" id="key-resellers-section"></div>
   </div>
 
   <script src="../services/config.js"></script>
@@ -130,7 +129,7 @@
     });
 
     const keyResellers = [
-      { name: "CDKeys", url: "https://www.cdkeys.com/catalogsearch/result/?q=", icon: "https://www.cdkeys.com/favicon.ico" },
+      { name: "Loaded", url: "https://www.loaded.com/?q=", icon: "https://cdn.loaded.com/media/favicon/default/loaded_fav.png" },
       { name: "G2A", url: "https://www.g2a.com/search?query=", icon: "https://www.g2a.com/favicon.ico" },
       { name: "Kinguin", url: "https://www.kinguin.net/catalogsearch/result/?q=", icon: "https://www.kinguin.net/favicon.ico" },
       { name: "Eneba", url: "https://www.eneba.com/store?text=", icon: "https://www.eneba.com/favicon.ico" },
@@ -138,16 +137,28 @@
       { name: "AllKeyShop", url: "https://www.allkeyshop.com/blog/catalogue/search-", icon: "https://www.allkeyshop.com/favicon.ico" }
     ];
 
-    function renderKeyResellers(gameName) {
+    function buildSteamHtml(steamDeals, cheapest, hasUniqueCheapest, symbol) {
+      if (steamDeals.length === 0) return "";
+      let html = '<div class="compare-group-label">Steam</div>';
+      html += steamDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, appId)).join("");
+      return html;
+    }
+
+    function buildOtherStoresHtml(otherDeals, cheapest, hasUniqueCheapest, symbol) {
+      if (otherDeals.length === 0) return "";
+      let html = '<div class="compare-group-label">Other Stores</div>';
+      html += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
+      return html;
+    }
+
+    function buildKeyResellersHtml(gameName) {
       const encoded = encodeURIComponent(gameName);
-      const section = document.getElementById("key-resellers-section");
-
       let html = `
-        <div class="key-resellers-title">Key Resellers</div>
-        <div class="key-resellers-note">Third-party marketplaces — prices may vary, buy at your own discretion</div>
-        <div class="key-reseller-list">
+        <div class="key-resellers-section">
+          <div class="key-resellers-title">Key Resellers</div>
+          <div class="key-resellers-note">Third-party marketplaces — prices may vary, buy at your own discretion</div>
+          <div class="key-reseller-list">
       `;
-
       for (const reseller of keyResellers) {
         const searchUrl = reseller.url + encoded;
         html += `
@@ -157,17 +168,23 @@
           </a>
         `;
       }
-
-      html += `</div>`;
-      section.innerHTML = html;
+      html += `</div></div>`;
+      return html;
     }
 
     async function loadPrices() {
+      // Get section order from settings
+      const orderData = await new Promise(resolve => {
+        chrome.storage.local.get(["compareSectionOrder"], resolve);
+      });
+      const sectionOrder = orderData.compareSectionOrder || ["steam", "otherStores", "keyResellers"];
+
       const deals = await ITAD_API.getDealsForSteamApp(appId, name);
 
       if (!deals || deals.length === 0) {
-        document.getElementById("compare-list").innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No deals found for this game</p>';
-        renderKeyResellers(name);
+        let html = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No deals found for this game</p>';
+        html += buildKeyResellersHtml(name);
+        document.getElementById("compare-list").innerHTML = html;
         return;
       }
 
@@ -196,29 +213,27 @@
       const symbols = { "GBP": "\u00A3", "USD": "$", "EUR": "\u20AC" };
       const symbol = symbols[dealCurrency] || dealCurrency + " ";
 
+      // Build sections based on saved order
+      const sections = {
+        steam: buildSteamHtml(steamDeals, cheapest, hasUniqueCheapest, symbol),
+        otherStores: buildOtherStoresHtml(otherDeals, cheapest, hasUniqueCheapest, symbol),
+        keyResellers: buildKeyResellersHtml(name)
+      };
+
       let html = "";
-
-      // Steam
-      if (steamDeals.length > 0) {
-        html += steamDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, appId)).join("");
-        if (otherDeals.length > 0) html += '<div class="compare-separator"></div><div class="compare-group-label">Other Stores</div>';
+      for (const sectionId of sectionOrder) {
+        html += sections[sectionId] || "";
       }
-
-      // Others
-      html += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
 
       document.getElementById("compare-list").innerHTML = html;
 
-      // Click handlers
+      // Click handlers for deal items
       document.querySelectorAll(".compare-modal-item").forEach(item => {
         item.addEventListener("click", () => {
           const url = item.dataset.url;
           if (url) chrome.tabs.create({ url });
         });
       });
-
-      // Render key resellers
-      renderKeyResellers(name);
     }
 
     function renderItem(deal, cheapest, hasUniqueCheapest, symbol, steamAppId) {

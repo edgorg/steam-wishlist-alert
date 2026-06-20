@@ -85,6 +85,7 @@ const REGION_CURRENCY = {
 // ============================================================
 async function init() {
   await loadSettings();
+  initSectionOrder();
 
   const data = await chrome.storage.local.get(["trackedGames", "priceTargets"]);
   const games = data.trackedGames || [];
@@ -230,6 +231,108 @@ async function loadSettings() {
   const sortPref = data.sortPreference || "name";
   currentSort = sortPref;
   sortSelect.value = sortPref;
+}
+
+function initSectionOrder() {
+  const list = document.getElementById("section-order-list");
+  const toggle = document.getElementById("section-order-toggle");
+  const content = document.getElementById("section-order-content");
+  if (!list || !toggle || !content) return;
+
+  // Load collapsed state
+  chrome.storage.local.get(["sectionOrderOpen"], (data) => {
+    if (data.sectionOrderOpen) {
+      toggle.classList.add("open");
+      content.classList.add("open");
+    }
+  });
+
+  // Collapsible toggle
+  toggle.addEventListener("click", () => {
+    const isOpen = toggle.classList.toggle("open");
+    content.classList.toggle("open");
+    chrome.storage.local.set({ sectionOrderOpen: isOpen });
+  });
+
+  // Load saved order and reorder DOM
+  chrome.storage.local.get(["compareSectionOrder"], (data) => {
+    const order = data.compareSectionOrder || ["steam", "otherStores", "keyResellers"];
+    order.forEach(sectionId => {
+      const item = list.querySelector(`[data-section="${sectionId}"]`);
+      if (item) list.appendChild(item);
+    });
+    updateNumbers();
+  });
+
+  let draggedItem = null;
+
+  list.addEventListener("dragstart", (e) => {
+    draggedItem = e.target.closest(".order-item");
+    if (!draggedItem) return;
+    draggedItem.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", "");
+  });
+
+  list.addEventListener("dragend", () => {
+    if (draggedItem) {
+      draggedItem.classList.remove("dragging");
+      draggedItem = null;
+      saveOrder();
+      updateNumbers();
+    }
+    list.querySelectorAll(".order-item").forEach(item => {
+      item.classList.remove("drag-over");
+    });
+  });
+
+  list.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+
+    list.querySelectorAll(".order-item").forEach(item => {
+      item.classList.remove("drag-over");
+    });
+
+    if (draggedItem) {
+      const afterElement = getDragAfterElement(list, e.clientY);
+      if (afterElement) {
+        list.insertBefore(draggedItem, afterElement);
+      } else {
+        list.appendChild(draggedItem);
+      }
+    }
+  });
+
+  list.addEventListener("drop", (e) => {
+    e.preventDefault();
+  });
+
+  function getDragAfterElement(container, y) {
+    const elements = [...container.querySelectorAll(".order-item:not(.dragging)")];
+    return elements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  function saveOrder() {
+    const items = list.querySelectorAll(".order-item");
+    const order = [...items].map(item => item.dataset.section);
+    chrome.storage.local.set({ compareSectionOrder: order });
+  }
+
+  function updateNumbers() {
+    const items = list.querySelectorAll(".order-item");
+    items.forEach((item, index) => {
+      const num = item.querySelector(".order-item-number");
+      if (num) num.textContent = index + 1;
+    });
+  }
 }
 
 // ============================================================
@@ -536,8 +639,6 @@ function renderGames(games, targets) {
       break;
   }
 
-  const totalGames = deals.length + watching.length;
-
   watchingCount.textContent = watching.length;
 
   gamesList.innerHTML = watching.map(game => renderGameCard(game, targets[game.appId], false)).join("");
@@ -620,7 +721,6 @@ function attachGameListeners(targets) {
       inputFocused = true;
     });
     input.addEventListener("blur", () => {
-      // Small delay so the click event on the card doesn't fire immediately
       setTimeout(() => { inputFocused = false; }, 200);
     });
   });
@@ -716,7 +816,7 @@ async function openCompareModal(deals, name, appId) {
   if (!tab) return;
 
   // Inject the compare modal script
-    try {
+  try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ["content/compare-modal.js"]
@@ -824,7 +924,6 @@ importPageBtn.addEventListener("click", async () => {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_GAMES" });
 
     if (response && response.games && response.games.length > 0) {
-      // Enforce limit for free users
       let gamesToImport = response.games;
 
       await chrome.runtime.sendMessage({ type: "IMPORT_WISHLIST", games: gamesToImport });

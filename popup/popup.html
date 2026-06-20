@@ -89,6 +89,33 @@
           <option value="pk">Pakistan (PKR)</option>
         </select>
       </div>
+            <div class="setting-section-divider"></div>
+      <div class="setting-collapsible">
+        <button class="setting-collapsible-toggle" id="section-order-toggle">
+          <span class="setting-section-title">Compare Section Order</span>
+          <span class="setting-collapsible-arrow">›</span>
+        </button>
+        <div class="setting-collapsible-content" id="section-order-content">
+          <div class="setting-hint">Drag to reorder sections in price comparison</div>
+          <div class="order-list" id="section-order-list">
+            <div class="order-item" draggable="true" data-section="steam">
+              <span class="order-drag-handle">⠿</span>
+              <span class="order-item-label">Steam</span>
+              <span class="order-item-number">1</span>
+            </div>
+            <div class="order-item" draggable="true" data-section="otherStores">
+              <span class="order-drag-handle">⠿</span>
+              <span class="order-item-label">Other Stores</span>
+              <span class="order-item-number">2</span>
+            </div>
+            <div class="order-item" draggable="true" data-section="keyResellers">
+              <span class="order-drag-handle">⠿</span>
+              <span class="order-item-label">Key Resellers</span>
+              <span class="order-item-number">3</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- Sale Countdown -->

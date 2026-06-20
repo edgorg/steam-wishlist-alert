@@ -7,7 +7,7 @@
   });
 
   const keyResellers = [
-    { name: "CDKeys", url: "https://www.cdkeys.com/catalogsearch/result/?q=", icon: "https://www.cdkeys.com/favicon.ico" },
+    { name: "Loaded", url: "https://www.loaded.com/?q=", icon: "https://cdn.loaded.com/media/favicon/default/loaded_fav.png" },
     { name: "G2A", url: "https://www.g2a.com/search?query=", icon: "https://www.g2a.com/favicon.ico" },
     { name: "Kinguin", url: "https://www.kinguin.net/catalogsearch/result/?q=", icon: "https://www.kinguin.net/favicon.ico" },
     { name: "Eneba", url: "https://www.eneba.com/store?text=", icon: "https://www.eneba.com/favicon.ico" },
@@ -19,6 +19,14 @@
     const existing = document.getElementById("swa-compare-overlay");
     if (existing) existing.remove();
 
+    // Get section order from storage
+    chrome.storage.local.get(["compareSectionOrder"], (data) => {
+      const sectionOrder = data.compareSectionOrder || ["steam", "otherStores", "keyResellers"];
+      renderModal(deals, name, appId, symbol, sectionOrder);
+    });
+  }
+
+  function renderModal(deals, name, appId, symbol, sectionOrder) {
     // Split into Steam and others
     const steamDeals = deals.filter(d => d.isSteam);
     const otherDeals = deals.filter(d => !d.isSteam).sort((a, b) => a.price - b.price);
@@ -29,36 +37,18 @@
     const cheapestCount = allDeals.filter(d => d.price === cheapest).length;
     const hasUniqueCheapest = cheapestCount === 1;
 
-    // Build list HTML
+    // Build each section
+    const sections = {
+      steam: buildSteamSection(steamDeals, cheapest, hasUniqueCheapest, symbol, appId),
+      otherStores: buildOtherStoresSection(otherDeals, cheapest, hasUniqueCheapest, symbol),
+      keyResellers: buildKeyResellersSection(name)
+    };
+
+    // Combine in saved order
     let listHtml = "";
-
-    // Steam section
-    if (steamDeals.length > 0) {
-      listHtml += '<div class="swa-group-label">Steam</div>';
-      listHtml += steamDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, appId)).join("");
+    for (const sectionId of sectionOrder) {
+      listHtml += sections[sectionId] || "";
     }
-
-    // Other stores
-    if (otherDeals.length > 0) {
-      listHtml += '<div class="swa-group-label">Other Stores</div>';
-      listHtml += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
-    }
-
-    // Key resellers section
-    const encodedName = encodeURIComponent(name);
-    let resellersHtml = '<div class="swa-group-label">Key Resellers</div>';
-    resellersHtml += '<div class="swa-resellers-note">Third-party marketplaces — buy at your own discretion</div>';
-    resellersHtml += '<div class="swa-reseller-list">';
-    for (const reseller of keyResellers) {
-      const searchUrl = reseller.url + encodedName;
-      resellersHtml += `
-        <a class="swa-reseller-link" href="${searchUrl}" target="_blank">
-          <img class="swa-reseller-icon" src="${reseller.icon}" alt="" onerror="this.style.display='none'">
-          ${reseller.name}
-        </a>
-      `;
-    }
-    resellersHtml += '</div>';
 
     const bannerUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
 
@@ -75,9 +65,6 @@
           </div>
           <div class="swa-list">
             ${listHtml}
-            <div class="swa-resellers-section">
-              ${resellersHtml}
-            </div>
           </div>
           <div class="swa-credit">
             Data from <a class="swa-credit-link" href="https://isthereanydeal.com/steam/app/${appId}/" target="_blank">IsThereAnyDeal.com</a>
@@ -114,7 +101,7 @@
           border: 1px solid #2a475e;
           border-radius: 12px;
           width: 480px;
-          max-height: 600px;
+          max-height: 620px;
           display: flex;
           flex-direction: column;
           box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
@@ -356,11 +343,42 @@
     });
   }
 
+  function buildSteamSection(steamDeals, cheapest, hasUniqueCheapest, symbol, appId) {
+    if (steamDeals.length === 0) return "";
+    let html = '<div class="swa-group-label">Steam</div>';
+    html += steamDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, appId)).join("");
+    return html;
+  }
+
+  function buildOtherStoresSection(otherDeals, cheapest, hasUniqueCheapest, symbol) {
+    if (otherDeals.length === 0) return "";
+    let html = '<div class="swa-group-label">Other Stores</div>';
+    html += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
+    return html;
+  }
+
+  function buildKeyResellersSection(name) {
+    const encoded = encodeURIComponent(name);
+    let html = '<div class="swa-resellers-section">';
+    html += '<div class="swa-group-label">Key Resellers</div>';
+    html += '<div class="swa-resellers-note">Third-party marketplaces — buy at your own discretion</div>';
+    html += '<div class="swa-reseller-list">';
+    for (const reseller of keyResellers) {
+      html += `
+        <a class="swa-reseller-link" href="${reseller.url}${encoded}" target="_blank">
+          <img class="swa-reseller-icon" src="${reseller.icon}" alt="" onerror="this.style.display='none'">
+          ${reseller.name}
+        </a>
+      `;
+    }
+    html += '</div></div>';
+    return html;
+  }
+
   function renderItem(deal, cheapest, hasUniqueCheapest, symbol, steamAppId) {
     const isCheapest = hasUniqueCheapest && deal.price === cheapest;
     const url = deal.isSteam && steamAppId ? `https://store.steampowered.com/app/${steamAppId}` : deal.dealUrl;
 
-    // Store favicon approach - more reliable than ITAD icons
     const storeFavicons = {
       "steam": "https://store.steampowered.com/favicon.ico",
       "gog": "https://www.gog.com/favicon.ico",
