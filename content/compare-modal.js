@@ -6,6 +6,15 @@
     }
   });
 
+  const keyResellers = [
+    { name: "CDKeys", url: "https://www.cdkeys.com/catalogsearch/result/?q=", icon: "https://www.cdkeys.com/favicon.ico" },
+    { name: "G2A", url: "https://www.g2a.com/search?query=", icon: "https://www.g2a.com/favicon.ico" },
+    { name: "Kinguin", url: "https://www.kinguin.net/catalogsearch/result/?q=", icon: "https://www.kinguin.net/favicon.ico" },
+    { name: "Eneba", url: "https://www.eneba.com/store?text=", icon: "https://www.eneba.com/favicon.ico" },
+    { name: "Instant Gaming", url: "https://www.instant-gaming.com/en/search/?q=", icon: "https://www.instant-gaming.com/favicon.ico" },
+    { name: "AllKeyShop", url: "https://www.allkeyshop.com/blog/catalogue/search-", icon: "https://www.allkeyshop.com/favicon.ico" }
+  ];
+
   function showCompareModal(deals, name, appId, symbol) {
     const existing = document.getElementById("swa-compare-overlay");
     if (existing) existing.remove();
@@ -35,6 +44,22 @@
       listHtml += otherDeals.map(deal => renderItem(deal, cheapest, hasUniqueCheapest, symbol, null)).join("");
     }
 
+    // Key resellers section
+    const encodedName = encodeURIComponent(name);
+    let resellersHtml = '<div class="swa-group-label">Key Resellers</div>';
+    resellersHtml += '<div class="swa-resellers-note">Third-party marketplaces — buy at your own discretion</div>';
+    resellersHtml += '<div class="swa-reseller-list">';
+    for (const reseller of keyResellers) {
+      const searchUrl = reseller.url + encodedName;
+      resellersHtml += `
+        <a class="swa-reseller-link" href="${searchUrl}" target="_blank">
+          <img class="swa-reseller-icon" src="${reseller.icon}" alt="" onerror="this.style.display='none'">
+          ${reseller.name}
+        </a>
+      `;
+    }
+    resellersHtml += '</div>';
+
     const bannerUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
 
     const overlay = document.createElement("div");
@@ -50,6 +75,9 @@
           </div>
           <div class="swa-list">
             ${listHtml}
+            <div class="swa-resellers-section">
+              ${resellersHtml}
+            </div>
           </div>
           <div class="swa-credit">
             Data from <a class="swa-credit-link" href="https://isthereanydeal.com/steam/app/${appId}/" target="_blank">IsThereAnyDeal.com</a>
@@ -86,7 +114,7 @@
           border: 1px solid #2a475e;
           border-radius: 12px;
           width: 480px;
-          max-height: 550px;
+          max-height: 600px;
           display: flex;
           flex-direction: column;
           box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
@@ -233,7 +261,6 @@
           padding: 2px 5px;
           border-radius: 3px;
         }
-        
         #swa-compare-overlay .swa-group-label {
           font-size: 10px;
           font-weight: 600;
@@ -242,7 +269,6 @@
           letter-spacing: 0.5px;
           padding: 4px 0 2px;
         }
-
         #swa-compare-overlay .swa-credit {
           text-align: center;
           padding-top: 10px;
@@ -257,6 +283,44 @@
         }
         #swa-compare-overlay .swa-credit-link:hover {
           text-decoration: underline;
+        }
+        #swa-compare-overlay .swa-resellers-section {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid #2a475e;
+        }
+        #swa-compare-overlay .swa-resellers-note {
+          font-size: 9px;
+          color: #56707f;
+          font-style: italic;
+          margin-bottom: 8px;
+        }
+        #swa-compare-overlay .swa-reseller-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        #swa-compare-overlay .swa-reseller-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          background: #213345;
+          border: 1px solid #2a475e;
+          border-radius: 6px;
+          color: #c7d5e0;
+          text-decoration: none;
+          font-size: 11px;
+          transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        #swa-compare-overlay .swa-reseller-link:hover {
+          border-color: #66c0f4;
+          background: #2a475e;
+        }
+        #swa-compare-overlay .swa-reseller-icon {
+          width: 14px;
+          height: 14px;
+          border-radius: 2px;
         }
       </style>
     `;

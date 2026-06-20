@@ -50,6 +50,59 @@
       flex-direction: column;
       gap: 6px;
     }
+
+    .key-resellers-section {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .key-resellers-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .key-resellers-note {
+      font-size: 9px;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+
+    .key-reseller-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .key-reseller-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 11px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .key-reseller-link:hover {
+      border-color: var(--accent);
+      background: var(--bg-card-hover);
+    }
+
+    .key-reseller-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+    }
   </style>
 </head>
 <body>
@@ -59,6 +112,7 @@
       <button class="compare-page-close" id="close-btn">x</button>
     </div>
     <div class="compare-page-list" id="compare-list"></div>
+    <div class="key-resellers-section" id="key-resellers-section"></div>
   </div>
 
   <script src="../services/config.js"></script>
@@ -75,11 +129,45 @@
       window.close();
     });
 
+    const keyResellers = [
+      { name: "CDKeys", url: "https://www.cdkeys.com/catalogsearch/result/?q=", icon: "https://www.cdkeys.com/favicon.ico" },
+      { name: "G2A", url: "https://www.g2a.com/search?query=", icon: "https://www.g2a.com/favicon.ico" },
+      { name: "Kinguin", url: "https://www.kinguin.net/catalogsearch/result/?q=", icon: "https://www.kinguin.net/favicon.ico" },
+      { name: "Eneba", url: "https://www.eneba.com/store?text=", icon: "https://www.eneba.com/favicon.ico" },
+      { name: "Instant Gaming", url: "https://www.instant-gaming.com/en/search/?q=", icon: "https://www.instant-gaming.com/favicon.ico" },
+      { name: "AllKeyShop", url: "https://www.allkeyshop.com/blog/catalogue/search-", icon: "https://www.allkeyshop.com/favicon.ico" }
+    ];
+
+    function renderKeyResellers(gameName) {
+      const encoded = encodeURIComponent(gameName);
+      const section = document.getElementById("key-resellers-section");
+
+      let html = `
+        <div class="key-resellers-title">Key Resellers</div>
+        <div class="key-resellers-note">Third-party marketplaces — prices may vary, buy at your own discretion</div>
+        <div class="key-reseller-list">
+      `;
+
+      for (const reseller of keyResellers) {
+        const searchUrl = reseller.url + encoded;
+        html += `
+          <a class="key-reseller-link" href="${searchUrl}" target="_blank">
+            <img class="key-reseller-icon" src="${reseller.icon}" alt="" onerror="this.style.display='none'">
+            ${reseller.name}
+          </a>
+        `;
+      }
+
+      html += `</div>`;
+      section.innerHTML = html;
+    }
+
     async function loadPrices() {
       const deals = await ITAD_API.getDealsForSteamApp(appId, name);
 
       if (!deals || deals.length === 0) {
         document.getElementById("compare-list").innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No deals found for this game</p>';
+        renderKeyResellers(name);
         return;
       }
 
@@ -128,6 +216,9 @@
           if (url) chrome.tabs.create({ url });
         });
       });
+
+      // Render key resellers
+      renderKeyResellers(name);
     }
 
     function renderItem(deal, cheapest, hasUniqueCheapest, symbol, steamAppId) {
