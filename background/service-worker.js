@@ -1,12 +1,12 @@
 importScripts("../services/config.js");
 
-// Set up price check alarm
+// ============================================================
+// Setup
+// ============================================================
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create("priceCheck", { periodInMinutes: 120 }); // Every 2 hours
-  console.log("Steam Wishlist Alerts installed");
+  chrome.alarms.create("priceCheck", { periodInMinutes: 120 });
 });
 
-// Handle alarm
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === "priceCheck") {
     await checkPrices();
@@ -14,35 +14,31 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
-// Handle messages from content script (wishlist import)
+// ============================================================
+// Message Handling
+// ============================================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "QUICK_ADD_GAME") {
-    handleQuickAdd(message.appId, message.name).then(result => {
-      sendResponse(result);
-    });
+    handleQuickAdd(message.appId, message.name).then(sendResponse);
     return true;
   }
-
   if (message.type === "IMPORT_WISHLIST") {
-    importWishlist(message.games).then(() => {
-      sendResponse({ success: true });
-    });
+    importWishlist(message.games).then(() => sendResponse({ success: true }));
     return true;
   }
 });
 
-// Import wishlist from content script
+// ============================================================
+// Import Wishlist
+// ============================================================
 async function importWishlist(games) {
   const data = await chrome.storage.local.get(["trackedGames"]);
   const existing = data.trackedGames || [];
   const existingIds = new Set(existing.map(g => g.appId));
-  const limit =  Infinity;
-
   let added = 0;
 
   for (const game of games) {
     if (existingIds.has(game.appId)) continue;
-    if (existing.length >= limit) break;
 
     existing.push({
       appId: game.appId,
@@ -54,37 +50,35 @@ async function importWishlist(games) {
       currentPrice: null,
       originalPrice: null,
       discountPercent: 0,
-      currency: "GBP"
+      currency: "GBP",
+      dateAdded: Date.now()
     });
-
     added++;
   }
 
   await chrome.storage.local.set({ trackedGames: existing });
-  console.log(`Imported ${added} new games (${existing.length} total)`);
-
-  // Fetch prices for new games in background
   await checkPrices();
 }
 
+// ============================================================
+// Quick Add from Store Page
+// ============================================================
 async function handleQuickAdd(appId, name) {
   const data = await chrome.storage.local.get(["trackedGames"]);
   const games = data.trackedGames || [];
 
-  // Check if already tracked
   if (games.find(g => g.appId === appId)) {
     return { success: true, alreadyTracked: true };
   }
 
-  // Fetch game details
   try {
     const response = await fetch(
       `https://store.steampowered.com/api/appdetails?appids=${appId}`
     );
 
-    let game = {
-      appId: appId,
-      name: name,
+    const game = {
+      appId,
+      name,
       capsuleUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
       storeUrl: `https://store.steampowered.com/app/${appId}`,
       isFree: false,
@@ -102,38 +96,38 @@ async function handleQuickAdd(appId, name) {
 
       if (appData?.success && appData.data) {
         const details = appData.data;
-        const priceOverview = details.price_overview;
+        const price = details.price_overview;
 
         game.name = details.name || name;
         game.isFree = details.is_free || false;
         game.released = !details.release_date?.coming_soon;
-        game.currentPrice = priceOverview ? priceOverview.final / 100 : 0;
-        game.originalPrice = priceOverview ? priceOverview.initial / 100 : 0;
-        game.discountPercent = priceOverview ? priceOverview.discount_percent : 0;
-        game.currency = priceOverview?.currency || "GBP";
+        game.currentPrice = price ? price.final / 100 : 0;
+        game.originalPrice = price ? price.initial / 100 : 0;
+        game.discountPercent = price ? price.discount_percent : 0;
+        game.currency = price?.currency || "GBP";
       }
     }
 
     games.push(game);
     await chrome.storage.local.set({ trackedGames: games });
-
     return { success: true };
   } catch (e) {
     return { success: false, error: "Failed to add" };
   }
 }
 
-// Check prices for all tracked games
+// ============================================================
+// Price Checking
+// ============================================================
 async function checkPrices() {
-  const data = await chrome.storage.local.get(["trackedGames", "priceTargets", "notifications", "region"]);
+  const data = await chrome.storage.local.get(["trackedGames", "priceTargets", "notifications", "region", "notifyThreshold"]);
   const cc = data.region || "gb";
   const games = data.trackedGames || [];
   const targets = data.priceTargets || {};
   const notificationsEnabled = data.notifications !== "off";
+  const threshold = data.notifyThreshold ?? 20;
 
   if (games.length === 0) return;
-
-  console.log(`Checking prices for ${games.length} games...`);
 
   let priceDrops = 0;
 
@@ -142,56 +136,56 @@ async function checkPrices() {
       const response = await fetch(
         `https://store.steampowered.com/api/appdetails?appids=${game.appId}&cc=${cc}`
       );
-
       if (!response.ok) continue;
 
       const result = await response.json();
       const appData = result[game.appId.toString()];
-
       if (!appData?.success || !appData.data) continue;
 
       const details = appData.data;
-      const priceOverview = details.price_overview;
-
+      const price = details.price_overview;
       const previousPrice = game.currentPrice;
 
       game.name = details.name || game.name;
       game.released = !details.release_date?.coming_soon;
       game.isFree = details.is_free || false;
-      game.currentPrice = priceOverview ? priceOverview.final / 100 : 0;
-      game.originalPrice = priceOverview ? priceOverview.initial / 100 : 0;
-      game.discountPercent = priceOverview ? priceOverview.discount_percent : 0;
-      game.currency = priceOverview?.currency || "GBP";
+      game.currentPrice = price ? price.final / 100 : 0;
+      game.originalPrice = price ? price.initial / 100 : 0;
+      game.discountPercent = price ? price.discount_percent : 0;
+      game.currency = price?.currency || "GBP";
 
-      // Calculate deal score if we have history low data
-      if (game.historyLow && game.originalPrice > 0 && game.currentPrice > 0) {
+      // Recalculate deal score
+      if (game.historyLow != null && game.originalPrice > 0 && game.currentPrice > 0) {
         const range = game.originalPrice - game.historyLow;
         if (range > 0) {
-          game.dealScore = Math.round((1 - (game.currentPrice - game.historyLow) / range) * 100);
-          game.dealScore = Math.max(0, Math.min(100, game.dealScore));
+          game.dealScore = Math.max(0, Math.min(100,
+            Math.round((1 - (game.currentPrice - game.historyLow) / range) * 100)
+          ));
         }
       }
 
-      const target = targets[game.appId];
-
+      // Notify on price drop
       if (notificationsEnabled && previousPrice !== null && game.currentPrice < previousPrice) {
-        const saving = (previousPrice - game.currentPrice).toFixed(2);
-        const symbol = getCurrencySymbol(game.currency);
-
         game.lastDrop = Date.now();
+        const target = targets[game.appId];
+        const hitTarget = target && game.currentPrice <= target;
+        const meetsThreshold = !target && game.discountPercent >= threshold;
 
-        if ((target && game.currentPrice <= target) || game.discountPercent >= 20) {
+        if (hitTarget || meetsThreshold) {
+          const symbol = getCurrencySymbol(game.currency);
+          const saving = (previousPrice - game.currentPrice).toFixed(2);
+
           chrome.notifications.create(`deal-${game.appId}`, {
             type: "basic",
             iconUrl: chrome.runtime.getURL("icons/icon128.png"),
-            title: "Price Drop!",
+            title: hitTarget ? "Target Price Hit!" : "Price Drop!",
             message: `${game.name} is now ${symbol}${game.currentPrice.toFixed(2)} (was ${symbol}${previousPrice.toFixed(2)}) - Save ${symbol}${saving}!`
           });
           priceDrops++;
         }
       }
     } catch (e) {
-      console.warn(`Price check failed for ${game.name}: ${e.message}`);
+      // Skip failed games
     }
 
     await new Promise(r => setTimeout(r, 300));
@@ -205,43 +199,26 @@ async function checkPrices() {
   } else {
     chrome.action.setBadgeText({ text: "" });
   }
-
-  console.log(`Price check complete. ${priceDrops} drops found.`);
 }
 
-function getCurrencySymbol(cc) {
-  const symbols = {
-    gb: "\u00A3",
-    us: "$",
-    eu: "\u20AC",
-    au: "A$",
-    ca: "C$",
-    jp: "\u00A5",
-    br: "R$",
-    ru: "\u20BD",
-    nz: "NZ$",
-    in: "\u20B9"
-  };
-  return symbols[cc] || "\u00A3";
-}
-
+// ============================================================
+// History Lows (ITAD)
+// ============================================================
 async function updateHistoryLows() {
   const data = await chrome.storage.local.get(["trackedGames"]);
-  
   const games = data.trackedGames || [];
-
   if (games.length === 0) return;
 
+  const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+
   for (const game of games) {
-    // Skip if we already have a recent history low
-    if (game.historyLowUpdated && Date.now() - game.historyLowUpdated < 7 * 24 * 60 * 60 * 1000) continue;
+    // Skip if updated recently
+    if (game.historyLowUpdated && Date.now() - game.historyLowUpdated < ONE_WEEK) continue;
 
     try {
-      // Look up game on ITAD
       const lookupResponse = await fetch(
         `https://api.isthereanydeal.com/games/lookup/v1?key=${CONFIG.ITAD_KEY}&appid=${game.appId}`
       );
-
       if (!lookupResponse.ok) continue;
 
       const lookupData = await lookupResponse.json();
@@ -249,7 +226,6 @@ async function updateHistoryLows() {
 
       const gameId = lookupData.game.id;
 
-      // Get prices (includes history low)
       const pricesResponse = await fetch(
         `https://api.isthereanydeal.com/games/prices/v2?key=${CONFIG.ITAD_KEY}&country=GB`,
         {
@@ -258,13 +234,11 @@ async function updateHistoryLows() {
           body: JSON.stringify([gameId])
         }
       );
-
       if (!pricesResponse.ok) continue;
 
       const pricesData = await pricesResponse.json();
 
-      if (pricesData && pricesData.length > 0 && pricesData[0].deals) {
-        // Find the lowest historyLow across all stores
+      if (pricesData?.[0]?.deals) {
         let lowestEver = null;
         for (const deal of pricesData[0].deals) {
           if (deal.historyLow && (lowestEver === null || deal.historyLow.amount < lowestEver)) {
@@ -276,18 +250,18 @@ async function updateHistoryLows() {
           game.historyLow = lowestEver;
           game.historyLowUpdated = Date.now();
 
-          // Calculate deal score
           if (game.originalPrice > 0 && game.currentPrice > 0) {
             const range = game.originalPrice - lowestEver;
             if (range > 0) {
-              game.dealScore = Math.round((1 - (game.currentPrice - lowestEver) / range) * 100);
-              game.dealScore = Math.max(0, Math.min(100, game.dealScore));
+              game.dealScore = Math.max(0, Math.min(100,
+                Math.round((1 - (game.currentPrice - lowestEver) / range) * 100)
+              ));
             }
           }
         }
       }
     } catch (e) {
-      console.warn(`History low fetch failed for ${game.name}:`, e.message);
+      // Skip failed lookups
     }
 
     await new Promise(r => setTimeout(r, 500));
@@ -296,13 +270,23 @@ async function updateHistoryLows() {
   await chrome.storage.local.set({ trackedGames: games });
 }
 
-// Clear badge when popup opens
+// ============================================================
+// Utilities
+// ============================================================
+function getCurrencySymbol(currency) {
+  const symbols = {
+    GBP: "£", USD: "$", EUR: "€", AUD: "A$", CAD: "C$",
+    JPY: "¥", BRL: "R$", NZD: "NZ$", INR: "₹", CNY: "¥"
+  };
+  return symbols[currency] || currency;
+}
+
+// Badge & notification handling
 chrome.action.onClicked.addListener(() => {
   chrome.action.setBadgeText({ text: "" });
 });
 
-// Handle notification clicks
-chrome.notifications.onClicked.addListener(async (notificationId) => {
+chrome.notifications.onClicked.addListener((notificationId) => {
   if (notificationId.startsWith("deal-")) {
     const appId = notificationId.replace("deal-", "");
     chrome.tabs.create({ url: `https://store.steampowered.com/app/${appId}` });

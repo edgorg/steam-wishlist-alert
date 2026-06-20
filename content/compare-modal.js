@@ -1,10 +1,6 @@
 (function() {
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "SHOW_COMPARE") {
-      showCompareModal(message.deals, message.name, message.appId, message.symbol);
-      sendResponse({ success: true });
-    }
-  });
+  if (window.__swaCompareModalLoaded) return;
+  window.__swaCompareModalLoaded = true;
 
   const keyResellers = [
     { name: "Loaded", url: "https://www.loaded.com/?q=", icon: "https://cdn.loaded.com/media/favicon/default/loaded_fav.png" },
@@ -14,6 +10,13 @@
     { name: "Instant Gaming", url: "https://www.instant-gaming.com/en/search/?q=", icon: "https://www.instant-gaming.com/favicon.ico" },
     { name: "AllKeyShop", url: "https://www.allkeyshop.com/blog/catalogue/search-", icon: "https://www.allkeyshop.com/favicon.ico" }
   ];
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "SHOW_COMPARE") {
+      showCompareModal(message.deals, message.name, message.appId, message.symbol);
+      sendResponse({ success: true });
+    }
+  });
 
   function showCompareModal(deals, name, appId, symbol) {
     const existing = document.getElementById("swa-compare-overlay");
@@ -198,8 +201,8 @@
           width: 20px;
           height: 20px;
           border-radius: 4px;
-          background: #2a475e;
-          padding: 2px;
+          flex-shrink: 0;
+          object-fit: contain;
         }
         #swa-compare-overlay .swa-store-details {
           display: flex;
@@ -361,7 +364,7 @@
     const encoded = encodeURIComponent(name);
     let html = '<div class="swa-resellers-section">';
     html += '<div class="swa-group-label">Key Resellers</div>';
-    html += '<div class="swa-resellers-note">Third-party marketplaces — buy at your own discretion</div>';
+    html += '<div class="swa-resellers-note">Third-party marketplaces - buy at your own discretion</div>';
     html += '<div class="swa-reseller-list">';
     for (const reseller of keyResellers) {
       html += `

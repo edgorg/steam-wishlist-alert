@@ -45,6 +45,13 @@
         </div>
       </div>
       <div class="setting-row">
+        <span class="setting-label">Min discount to notify</span>
+        <div class="setting-threshold-group">
+          <input type="number" id="threshold-input" class="setting-threshold-input" min="0" max="100" step="5" value="20">
+          <span class="setting-threshold-suffix">%</span>
+        </div>
+      </div>
+      <div class="setting-row">
         <span class="setting-label">Region</span>
         <select class="setting-select" id="region-select">
           <option value="gb">UK (GBP)</option>
@@ -89,7 +96,7 @@
           <option value="pk">Pakistan (PKR)</option>
         </select>
       </div>
-            <div class="setting-section-divider"></div>
+      <div class="setting-section-divider"></div>
       <div class="setting-collapsible">
         <button class="setting-collapsible-toggle" id="section-order-toggle">
           <span class="setting-section-title">Compare Section Order</span>
